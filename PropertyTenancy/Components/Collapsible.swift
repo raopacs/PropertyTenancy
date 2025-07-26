@@ -73,7 +73,6 @@ public struct Collapsible<Content: View>: View {
         }
         
         Collapsible(title: "Address Details") {
-            Address()
         }
         
         Collapsible(title: "Additional Notes") {

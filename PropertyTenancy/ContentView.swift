@@ -11,6 +11,7 @@ import SwiftData
 @available(iOS 17.0, *)
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @State private var newAddress = AddressModel()
 
     public init() {}
 
@@ -19,7 +20,7 @@ public struct ContentView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     Collapsible(title: "Properties") {
-                        Address()
+                        Address(address: newAddress, onSave: {})
                     }
                 }
                 .padding()
@@ -38,7 +39,8 @@ public struct ContentView: View {
         }
     }
 }
-
+@available(iOS 17.0, *)
 #Preview {
     ContentView()
+        .modelContainer(for: AddressModel.self, inMemory: true)
 }

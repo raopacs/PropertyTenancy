@@ -1,15 +1,10 @@
 import SwiftUI
+import SwiftData
 
 @available(iOS 17.0, *)
 public struct Address: View {
-    @State private var line1: String = ""
-    @State private var line2: String = ""
-    @State private var city: String = ""
-    @State private var state: String = ""
-    @State private var pinCode: String = ""
-    @State private var title: String = ""
-
-    public init() {}
+    @Bindable var address: AddressModel
+    var onSave: () -> Void
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -18,28 +13,38 @@ public struct Address: View {
                 .fontWeight(.semibold)
             
             VStack(alignment: .leading, spacing: 12) {
-                TextField("Title (e.g. Home, Work)", text: $title)
+                TextField("Title (e.g. Home, Work)", text: $address.title)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
 
-                TextField("Address Line 1", text: $line1)
+                TextField("Address Line 1", text: $address.line1)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
 
-                TextField("Address Line 2", text: $line2)
+                TextField("Address Line 2", text: $address.line2)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                 
                 HStack(spacing: 12) {
-                    TextField("City", text: $city)
+                    TextField("City", text: $address.city)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                     
-                    TextField("State", text: $state)
+                    TextField("State", text: $address.state)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                 }
                 
                 HStack(spacing: 12) {
-                    TextField("PIN Code", text: $pinCode)
+                    TextField("PIN Code", text: $address.pinCode)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .keyboardType(.numberPad)
                 }
+            }
+            
+            Button(action: onSave) {
+                Text("Save Address")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
             }
         }
         .padding()
@@ -49,7 +54,11 @@ public struct Address: View {
     }
 }
 
+@available(iOS 17.0, *)
 #Preview {
-    Address()
+    // This preview requires a model container to work with @Bindable on a SwiftData model.
+    let container = try! ModelContainer(for: AddressModel.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+    Address(address: AddressModel(title: "Home Preview"), onSave: { print("Save tapped") })
         .padding()
+        .modelContainer(container)
 } 
