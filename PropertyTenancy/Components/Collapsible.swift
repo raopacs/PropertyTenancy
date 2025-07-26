@@ -1,16 +1,16 @@
 import SwiftUI
 
-struct Collapsible<Content: View>: View {
+public struct Collapsible<Content: View>: View {
     let title: String
     let content: Content
     @State private var isExpanded: Bool = false
     
-    init(title: String, @ViewBuilder content: () -> Content) {
+    public init(title: String, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }
     
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 0) {
             // Header - always visible
             Button(action: {

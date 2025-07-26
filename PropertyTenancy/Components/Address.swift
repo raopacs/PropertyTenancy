@@ -1,14 +1,16 @@
 import SwiftUI
 
-struct Address: View {
+public struct Address: View {
     @State private var line1: String = ""
     @State private var line2: String = ""
     @State private var city: String = ""
     @State private var state: String = ""
     @State private var pinCode: String = ""
     @State private var title: String = ""
-    
-    var body: some View {
+
+    public init() {}
+
+    public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Address")
                 .font(.headline)
