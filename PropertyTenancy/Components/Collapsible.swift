@@ -61,6 +61,7 @@ public struct Collapsible<Content: View>: View {
     }
 }
 
+@available(iOS 17.0, *)
 #Preview {
     VStack(spacing: 20) {
         Collapsible(title: "Personal Information") {
