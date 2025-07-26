@@ -1,5 +1,6 @@
 import SwiftUI
 
+@available(iOS 17.0, *)
 public struct Collapsible<Content: View>: View {
     let title: String
     let content: Content

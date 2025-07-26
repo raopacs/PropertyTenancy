@@ -1,5 +1,6 @@
 import SwiftUI
 
+@available(iOS 17.0, *)
 public struct Address: View {
     @State private var line1: String = ""
     @State private var line2: String = ""

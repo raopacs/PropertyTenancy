@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 
+@available(iOS 17.0, *)
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
 
@@ -17,7 +18,7 @@ public struct ContentView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    Collapsible(title: "Address") {
+                    Collapsible(title: "Properties") {
                         Address()
                     }
                 }
@@ -40,5 +41,4 @@ public struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
