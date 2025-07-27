@@ -12,6 +12,7 @@ import SwiftData
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var newAddress = AddressModel()
+    @State private var newTenancy = TenancyModel()
 
     public init() {}
 
@@ -19,8 +20,12 @@ public struct ContentView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    Collapsible(title: "Properties") {
-                        Address(address: newAddress, onSave: {})
+                    CollapsibleView(title: "Properties") {
+                        AddressView(address: newAddress, onSave: {})
+                    }
+                    
+                    CollapsibleView(title: "Tenancy") {
+                        TenancyView(tenancy: newTenancy, onSave: {})
                     }
                 }
                 .padding()

@@ -1,7 +1,7 @@
 import SwiftUI
 
 @available(iOS 17.0, *)
-public struct Collapsible<Content: View>: View {
+public struct CollapsibleView<Content: View>: View {
     let title: String
     let content: Content
     @State private var isExpanded: Bool = false
@@ -64,7 +64,7 @@ public struct Collapsible<Content: View>: View {
 @available(iOS 17.0, *)
 #Preview {
     VStack(spacing: 20) {
-        Collapsible(title: "Personal Information") {
+        CollapsibleView(title: "Personal Information") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Name: John Doe")
                 Text("Email: john@example.com")
@@ -72,10 +72,10 @@ public struct Collapsible<Content: View>: View {
             }
         }
         
-        Collapsible(title: "Address Details") {
+        CollapsibleView(title: "Address Details") {
         }
         
-        Collapsible(title: "Additional Notes") {
+        CollapsibleView(title: "Additional Notes") {
             Text("This is a sample note that can contain any content including other components.")
                 .foregroundColor(.secondary)
         }

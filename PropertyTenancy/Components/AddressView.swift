@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 @available(iOS 17.0, *)
-public struct Address: View {
+public struct AddressView: View {
     @Bindable var address: AddressModel
     var onSave: () -> Void
 
@@ -58,7 +58,7 @@ public struct Address: View {
 #Preview {
     // This preview requires a model container to work with @Bindable on a SwiftData model.
     let container = try! ModelContainer(for: AddressModel.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-    Address(address: AddressModel(title: "Home Preview"), onSave: { print("Save tapped") })
+    AddressView(address: AddressModel(title: "Home Preview"), onSave: { print("Save tapped") })
         .padding()
         .modelContainer(container)
 } 
