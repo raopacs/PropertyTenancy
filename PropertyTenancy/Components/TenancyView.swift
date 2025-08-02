@@ -10,7 +10,7 @@ public struct TenancyView: View {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         // In a real app, this might come from user's locale or settings
-        formatter.locale = Locale(identifier: "en_US")
+        formatter.locale = Locale(identifier: "en_IN")
         return formatter
     }
 

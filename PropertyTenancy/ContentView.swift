@@ -11,8 +11,8 @@ import SwiftData
 @available(iOS 17.0, *)
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @State private var newAddress = AddressModel()
-    @State private var newTenancy = TenancyModel()
+    @Query(sort: \AddressModel.title) private var properties: [AddressModel]
+    @Query(sort: \TenancyModel.name) private var tenancies: [TenancyModel]
 
     public init() {}
 
@@ -20,12 +20,30 @@ public struct ContentView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    CollapsibleView(title: "Properties") {
-                        AddressView(address: newAddress, onSave: {})
+                    CollapsibleView(title: "Properties (\(properties.count))") {
+                        if properties.isEmpty {
+                            ContentUnavailableView("No Properties", systemImage: "house.fill", description: Text("Properties you add will appear here."))
+                                .padding(.vertical)
+                        } else {
+                            VStack(spacing: 15) {
+                                ForEach(properties) { property in
+                                    AddressDisplayView(address: property)
+                                }
+                            }
+                        }
                     }
                     
-                    CollapsibleView(title: "Tenancy") {
-                        TenancyView(tenancy: newTenancy, onSave: {})
+                    CollapsibleView(title: "Tenancies (\(tenancies.count))") {
+                        if tenancies.isEmpty {
+                            ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Tenancies you add will appear here."))
+                                .padding(.vertical)
+                        } else {
+                            VStack(spacing: 15) {
+                                ForEach(tenancies) { tenancy in
+                                    TenancyDisplayView(tenancy: tenancy)
+                                }
+                            }
+                        }
                     }
                 }
                 .padding()
@@ -47,5 +65,5 @@ public struct ContentView: View {
 @available(iOS 17.0, *)
 #Preview {
     ContentView()
-        .modelContainer(for: AddressModel.self, inMemory: true)
+        .modelContainer(for: [AddressModel.self, TenancyModel.self], inMemory: true)
 }
