@@ -22,7 +22,10 @@ let package = Package(
             dependencies: [],
             path: "PropertyTenancy",
             // Exclude the app's entry point and configuration files from the library.
-            exclude: ["PropertyTenancyApp.swift", "Info.plist"]),
+            exclude: ["PropertyTenancyApp.swift", "Info.plist"],
+            linkerSettings: [
+                .linkedFramework("sqlite3")
+            ]),
         .testTarget(
             name: "PropertyTenancyTests",
             dependencies: ["PropertyTenancyKit"],

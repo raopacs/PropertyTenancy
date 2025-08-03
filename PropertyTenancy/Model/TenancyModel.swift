@@ -1,9 +1,8 @@
 import Foundation
-import SwiftData
 
 @available(iOS 17.0, *)
-@Model
 public final class TenancyModel {
+    public var id: String?
     public var name: String
     public var contact: String
     public var address: AddressModel?
@@ -13,14 +12,17 @@ public final class TenancyModel {
     public var agreementSignedDate: Date
     public var comments: String
 
-    public init(name: String = "",
+    public init(
+                id: String? = nil,
+                name: String = "",
                 contact: String = "",
                 address: AddressModel? = nil,
-                leaseStartDate: Date = .now,
+                leaseStartDate: Date = Date(),
                 leaseAgreementSigned: Bool = false,
                 advanceAmount: Double = 0.0,
-                agreementSignedDate: Date = .now,
+                agreementSignedDate: Date = Date(),
                 comments: String = "") {
+        self.id = id
         self.name = name
         self.contact = contact
         self.address = address

@@ -1,11 +1,12 @@
 import SwiftUI
-import SwiftData
 
-@available(iOS 17.0, *)
 public struct AddressView: View {
-    @Bindable var address: AddressModel
+    @State var address: AddressModel
+    @State private var showingSaveAlert = false
+    @State private var alertMessage = ""
     var onSave: () -> Void
 
+    @available(iOS 17.0, *)
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Address")
@@ -37,7 +38,7 @@ public struct AddressView: View {
                 }
             }
             
-            Button(action: onSave) {
+            Button(action: saveAddress) {
                 Text("Save Address")
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
@@ -51,14 +52,35 @@ public struct AddressView: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .alert("Save Result", isPresented: $showingSaveAlert) {
+            Button("OK") { }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+    
+    private func saveAddress() {
+        do {
+            if address.id != nil {
+                // Update existing address
+                try DatabaseManager.shared.updateAddress(address)
+                alertMessage = "Address updated successfully!"
+            } else {
+                // Save new address
+                let savedId = try DatabaseManager.shared.saveAddress(address)
+                address.id = savedId
+                alertMessage = "Address saved successfully with ID: \(savedId)"
+            }
+            showingSaveAlert = true
+            onSave()
+        } catch {
+            alertMessage = "Error saving address: \(error.localizedDescription)"
+            showingSaveAlert = true
+        }
     }
 }
 
-@available(iOS 17.0, *)
 #Preview {
-    // This preview requires a model container to work with @Bindable on a SwiftData model.
-    let container = try! ModelContainer(for: AddressModel.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
     AddressView(address: AddressModel(title: "Home Preview"), onSave: { print("Save tapped") })
         .padding()
-        .modelContainer(container)
 } 

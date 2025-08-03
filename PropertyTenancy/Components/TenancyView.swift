@@ -1,9 +1,8 @@
 import SwiftUI
-import SwiftData
 
 @available(iOS 17.0, *)
 public struct TenancyView: View {
-    @Bindable var tenancy: TenancyModel
+    @State var tenancy: TenancyModel
     var onSave: () -> Void
 
     private var currencyFormatter: NumberFormatter {
@@ -26,10 +25,9 @@ public struct TenancyView: View {
 
                 TextField("Contact", text: $tenancy.contact)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .keyboardType(.phonePad)
                 
                 CollapsibleView(title: "Previous Address") {
-                    AddressView(address: $tenancy.wrappedValue.address ?? AddressModel(), onSave: {})
+                    AddressView(address: tenancy.address ?? AddressModel(), onSave: {})
                 }
 
                 DatePicker("Lease Start Date", selection: $tenancy.leaseStartDate, displayedComponents: .date)
@@ -41,8 +39,6 @@ public struct TenancyView: View {
                     Spacer()
                     TextField("Amount", value: $tenancy.advanceAmount, formatter: currencyFormatter)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
                         .frame(width: 150)
                 }
 
@@ -70,7 +66,7 @@ public struct TenancyView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.white)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -78,9 +74,6 @@ public struct TenancyView: View {
 
 @available(iOS 17.0, *)
 #Preview {
-    // This preview requires a model container to work with @Bindable on a SwiftData model.
-    let container = try! ModelContainer(for: TenancyModel.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-    return TenancyView(tenancy: TenancyModel(), onSave: { print("Save tapped") })
+    TenancyView(tenancy: TenancyModel(), onSave: { print("Save tapped") })
         .padding()
-        .modelContainer(container)
 }
