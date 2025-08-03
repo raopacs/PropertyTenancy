@@ -3,6 +3,8 @@ import SwiftUI
 @available(iOS 17.0, *)
 public struct TenancyView: View {
     @State var tenancy: TenancyModel
+    @State private var showingSaveAlert = false
+    @State private var alertMessage = ""
     var onSave: () -> Void
 
     private var currencyFormatter: NumberFormatter {
@@ -13,6 +15,7 @@ public struct TenancyView: View {
         return formatter
     }
 
+    @available(iOS 17.0, *)
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Tenancy")
@@ -55,7 +58,7 @@ public struct TenancyView: View {
                 }
             }
 
-            Button(action: onSave) {
+            Button(action: saveTenancy) {
                 Text("Save Tenancy")
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
@@ -69,6 +72,31 @@ public struct TenancyView: View {
         .background(Color.white)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .alert("Save Result", isPresented: $showingSaveAlert) {
+            Button("OK") { }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+    
+    private func saveTenancy() {
+        do {
+            if let id = tenancy.id {
+                // Update existing tenancy
+                try DatabaseManager.shared.updateTenancy(tenancy)
+                alertMessage = "Tenancy updated successfully!"
+            } else {
+                // Save new tenancy
+                let savedId = try DatabaseManager.shared.saveTenancy(tenancy)
+                tenancy.id = savedId
+                alertMessage = "Tenancy saved successfully with ID: \(savedId)"
+            }
+            showingSaveAlert = true
+            onSave()
+        } catch {
+            alertMessage = "Error saving tenancy: \(error.localizedDescription)"
+            showingSaveAlert = true
+        }
     }
 }
 

@@ -8,8 +8,19 @@ public class DatabaseManager {
     public static let shared = DatabaseManager()
     
     private init() {
-        let documentsPath = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first!
-        dbPath = "\(documentsPath)/PropertyTenancy.sqlite3"
+        let customDocumentsPath = "/Users/prashanthrao/Documents/PropertyTenancyData"
+        
+        // Create directory if it doesn't exist
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: customDocumentsPath) {
+            do {
+                try fileManager.createDirectory(atPath: customDocumentsPath, withIntermediateDirectories: true, attributes: nil)
+            } catch {
+                print("Error creating directory: \(error)")
+            }
+        }
+        
+        dbPath = "\(customDocumentsPath)/PropertyTenancy.sqlite3"
         
         setupDatabase()
     }
@@ -23,7 +34,7 @@ public class DatabaseManager {
     }
     
     private func createTables() {
-        let createTableSQL = """
+        let createAddressTableSQL = """
             CREATE TABLE IF NOT EXISTS addresses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT,
@@ -35,8 +46,27 @@ public class DatabaseManager {
             );
         """
         
-        if sqlite3_exec(db, createTableSQL, nil, nil, nil) != SQLITE_OK {
-            print("Error creating table")
+        let createTenancyTableSQL = """
+            CREATE TABLE IF NOT EXISTS tenancies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                contact TEXT,
+                addressId INTEGER,
+                leaseStartDate TEXT,
+                leaseAgreementSigned INTEGER,
+                advanceAmount REAL,
+                agreementSignedDate TEXT,
+                comments TEXT,
+                FOREIGN KEY (addressId) REFERENCES addresses (id)
+            );
+        """
+        
+        if sqlite3_exec(db, createAddressTableSQL, nil, nil, nil) != SQLITE_OK {
+            print("Error creating addresses table")
+        }
+        
+        if sqlite3_exec(db, createTenancyTableSQL, nil, nil, nil) != SQLITE_OK {
+            print("Error creating tenancies table")
         }
     }
     
@@ -181,6 +211,230 @@ public class DatabaseManager {
         
         sqlite3_finalize(statement)
         return nil
+    }
+    
+    // MARK: - Tenancy Operations
+    
+    public func saveTenancy(_ tenancy: TenancyModel) throws -> Int64 {
+        let insertSQL = """
+            INSERT INTO tenancies (name, contact, addressId, leaseStartDate, leaseAgreementSigned, advanceAmount, agreementSignedDate, comments)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+        """
+        
+        var statement: OpaquePointer?
+        
+        if sqlite3_prepare_v2(db, insertSQL, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_text(statement, 1, (tenancy.name as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 2, (tenancy.contact as NSString).utf8String, -1, nil)
+            sqlite3_bind_int64(statement, 3, tenancy.address?.id ?? 0)
+            sqlite3_bind_text(statement, 4, (formatDate(tenancy.leaseStartDate) as NSString).utf8String, -1, nil)
+            sqlite3_bind_int(statement, 5, tenancy.leaseAgreementSigned ? 1 : 0)
+            sqlite3_bind_double(statement, 6, tenancy.advanceAmount)
+            sqlite3_bind_text(statement, 7, (formatDate(tenancy.agreementSignedDate) as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 8, (tenancy.comments as NSString).utf8String, -1, nil)
+            
+            if sqlite3_step(statement) == SQLITE_DONE {
+                let id = sqlite3_last_insert_rowid(db)
+                tenancy.id = id
+                sqlite3_finalize(statement)
+                return id
+            }
+        }
+        
+        sqlite3_finalize(statement)
+        throw DatabaseError.saveFailed
+    }
+    
+    public func updateTenancy(_ tenancy: TenancyModel) throws {
+        guard let id = tenancy.id else {
+            throw DatabaseError.invalidId
+        }
+        
+        let updateSQL = """
+            UPDATE tenancies 
+            SET name = ?, contact = ?, addressId = ?, leaseStartDate = ?, leaseAgreementSigned = ?, advanceAmount = ?, agreementSignedDate = ?, comments = ?
+            WHERE id = ?;
+        """
+        
+        var statement: OpaquePointer?
+        
+        if sqlite3_prepare_v2(db, updateSQL, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_text(statement, 1, (tenancy.name as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 2, (tenancy.contact as NSString).utf8String, -1, nil)
+            sqlite3_bind_int64(statement, 3, tenancy.address?.id ?? 0)
+            sqlite3_bind_text(statement, 4, (formatDate(tenancy.leaseStartDate) as NSString).utf8String, -1, nil)
+            sqlite3_bind_int(statement, 5, tenancy.leaseAgreementSigned ? 1 : 0)
+            sqlite3_bind_double(statement, 6, tenancy.advanceAmount)
+            sqlite3_bind_text(statement, 7, (formatDate(tenancy.agreementSignedDate) as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 8, (tenancy.comments as NSString).utf8String, -1, nil)
+            sqlite3_bind_int64(statement, 9, id)
+            
+            if sqlite3_step(statement) != SQLITE_DONE {
+                throw DatabaseError.updateFailed
+            }
+        }
+        
+        sqlite3_finalize(statement)
+    }
+    
+    public func deleteTenancy(id: Int64) throws {
+        let deleteSQL = "DELETE FROM tenancies WHERE id = ?;"
+        
+        var statement: OpaquePointer?
+        
+        if sqlite3_prepare_v2(db, deleteSQL, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int64(statement, 1, id)
+            
+            if sqlite3_step(statement) != SQLITE_DONE {
+                throw DatabaseError.deleteFailed
+            }
+        }
+        
+        sqlite3_finalize(statement)
+    }
+    
+    public func getAllTenancies() throws -> [TenancyModel] {
+        let querySQL = """
+            SELECT t.id, t.name, t.contact, t.addressId, t.leaseStartDate, t.leaseAgreementSigned, t.advanceAmount, t.agreementSignedDate, t.comments,
+                   a.id as address_id, a.title, a.line1, a.line2, a.city, a.state, a.pinCode
+            FROM tenancies t
+            LEFT JOIN addresses a ON t.addressId = a.id;
+        """
+        
+        var statement: OpaquePointer?
+        var tenancies: [TenancyModel] = []
+        
+        if sqlite3_prepare_v2(db, querySQL, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let id = sqlite3_column_int64(statement, 0)
+                let name = String(cString: sqlite3_column_text(statement, 1))
+                let contact = String(cString: sqlite3_column_text(statement, 2))
+                let addressId = sqlite3_column_int64(statement, 3)
+                let leaseStartDate = String(cString: sqlite3_column_text(statement, 4))
+                let leaseAgreementSigned = sqlite3_column_int(statement, 5) == 1
+                let advanceAmount = sqlite3_column_double(statement, 6)
+                let agreementSignedDate = String(cString: sqlite3_column_text(statement, 7))
+                let comments = String(cString: sqlite3_column_text(statement, 8))
+                
+                // Create address if addressId exists
+                var address: AddressModel?
+                if addressId > 0 {
+                    let addressId = sqlite3_column_int64(statement, 9)
+                    let title = String(cString: sqlite3_column_text(statement, 10))
+                    let line1 = String(cString: sqlite3_column_text(statement, 11))
+                    let line2 = String(cString: sqlite3_column_text(statement, 12))
+                    let city = String(cString: sqlite3_column_text(statement, 13))
+                    let state = String(cString: sqlite3_column_text(statement, 14))
+                    let pinCode = String(cString: sqlite3_column_text(statement, 15))
+                    
+                    address = AddressModel(
+                        id: addressId,
+                        title: title,
+                        line1: line1,
+                        line2: line2,
+                        city: city,
+                        state: state,
+                        pinCode: pinCode
+                    )
+                }
+                
+                let tenancy = TenancyModel(
+                    id: id,
+                    name: name,
+                    contact: contact,
+                    address: address,
+                    leaseStartDate: parseDate(leaseStartDate),
+                    leaseAgreementSigned: leaseAgreementSigned,
+                    advanceAmount: advanceAmount,
+                    agreementSignedDate: parseDate(agreementSignedDate),
+                    comments: comments
+                )
+                tenancies.append(tenancy)
+            }
+        }
+        
+        sqlite3_finalize(statement)
+        return tenancies
+    }
+    
+    public func getTenancy(id: Int64) throws -> TenancyModel? {
+        let querySQL = """
+            SELECT t.id, t.name, t.contact, t.addressId, t.leaseStartDate, t.leaseAgreementSigned, t.advanceAmount, t.agreementSignedDate, t.comments,
+                   a.id as address_id, a.title, a.line1, a.line2, a.city, a.state, a.pinCode
+            FROM tenancies t
+            LEFT JOIN addresses a ON t.addressId = a.id
+            WHERE t.id = ?;
+        """
+        
+        var statement: OpaquePointer?
+        
+        if sqlite3_prepare_v2(db, querySQL, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int64(statement, 1, id)
+            
+            if sqlite3_step(statement) == SQLITE_ROW {
+                let id = sqlite3_column_int64(statement, 0)
+                let name = String(cString: sqlite3_column_text(statement, 1))
+                let contact = String(cString: sqlite3_column_text(statement, 2))
+                let addressId = sqlite3_column_int64(statement, 3)
+                let leaseStartDate = String(cString: sqlite3_column_text(statement, 4))
+                let leaseAgreementSigned = sqlite3_column_int(statement, 5) == 1
+                let advanceAmount = sqlite3_column_double(statement, 6)
+                let agreementSignedDate = String(cString: sqlite3_column_text(statement, 7))
+                let comments = String(cString: sqlite3_column_text(statement, 8))
+                
+                // Create address if addressId exists
+                var address: AddressModel?
+                if addressId > 0 {
+                    let addressId = sqlite3_column_int64(statement, 9)
+                    let title = String(cString: sqlite3_column_text(statement, 10))
+                    let line1 = String(cString: sqlite3_column_text(statement, 11))
+                    let line2 = String(cString: sqlite3_column_text(statement, 12))
+                    let city = String(cString: sqlite3_column_text(statement, 13))
+                    let state = String(cString: sqlite3_column_text(statement, 14))
+                    let pinCode = String(cString: sqlite3_column_text(statement, 15))
+                    
+                    address = AddressModel(
+                        id: addressId,
+                        title: title,
+                        line1: line1,
+                        line2: line2,
+                        city: city,
+                        state: state,
+                        pinCode: pinCode
+                    )
+                }
+                
+                sqlite3_finalize(statement)
+                return TenancyModel(
+                    id: id,
+                    name: name,
+                    contact: contact,
+                    address: address,
+                    leaseStartDate: parseDate(leaseStartDate),
+                    leaseAgreementSigned: leaseAgreementSigned,
+                    advanceAmount: advanceAmount,
+                    agreementSignedDate: parseDate(agreementSignedDate),
+                    comments: comments
+                )
+            }
+        }
+        
+        sqlite3_finalize(statement)
+        return nil
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter.string(from: date)
+    }
+    
+    private func parseDate(_ dateString: String) -> Date {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter.date(from: dateString) ?? Date()
     }
     
     deinit {

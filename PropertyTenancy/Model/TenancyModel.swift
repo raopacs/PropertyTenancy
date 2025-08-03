@@ -2,7 +2,7 @@ import Foundation
 
 @available(iOS 17.0, *)
 public final class TenancyModel {
-    public var id: String?
+    public var id: Int64?
     public var name: String
     public var contact: String
     public var address: AddressModel?
@@ -13,7 +13,7 @@ public final class TenancyModel {
     public var comments: String
 
     public init(
-                id: String? = nil,
+                id: Int64? = nil,
                 name: String = "",
                 contact: String = "",
                 address: AddressModel? = nil,

@@ -160,8 +160,7 @@ public struct ContentView: View {
         
         do {
             properties = try DatabaseManager.shared.getAllAddresses()
-            // Note: TenancyModel SQLite implementation would need to be added separately
-            tenancies = []
+            tenancies = try DatabaseManager.shared.getAllTenancies()
         } catch {
             print("Error loading data: \(error)")
         }
