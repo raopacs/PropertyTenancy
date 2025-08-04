@@ -3,12 +3,12 @@ import SQLite3
 
 public class DatabaseManager {
     private var db: OpaquePointer?
-    private let dbPath: String
+    private var dbPath: String
     
     public static let shared = DatabaseManager()
     
     private init() {
-        let customDocumentsPath = "/Users/prashanthrao/Documents/PropertyTenancyData"
+        let customDocumentsPath = Settings.shared.databasePath
         
         // Create directory if it doesn't exist
         let fileManager = FileManager.default
@@ -435,6 +435,27 @@ public class DatabaseManager {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter.date(from: dateString) ?? Date()
+    }
+    
+    public func reinitializeDatabase() {
+        // Close existing connection
+        sqlite3_close(db)
+        
+        // Reinitialize with new path
+        let customDocumentsPath = Settings.shared.databasePath
+        
+        // Create directory if it doesn't exist
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: customDocumentsPath) {
+            do {
+                try fileManager.createDirectory(atPath: customDocumentsPath, withIntermediateDirectories: true, attributes: nil)
+            } catch {
+                print("Error creating directory: \(error)")
+            }
+        }
+        
+        dbPath = "\(customDocumentsPath)/PropertyTenancy.sqlite3"
+        setupDatabase()
     }
     
     deinit {
