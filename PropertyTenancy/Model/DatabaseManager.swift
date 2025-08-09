@@ -68,6 +68,21 @@ public class DatabaseManager {
         if sqlite3_exec(db, createTenancyTableSQL, nil, nil, nil) != SQLITE_OK {
             print("Error creating tenancies table")
         }
+
+        let createRentPaymentsTableSQL = """
+            CREATE TABLE IF NOT EXISTS rent_payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tenancyId INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                paidOn TEXT NOT NULL,
+                notes TEXT,
+                FOREIGN KEY (tenancyId) REFERENCES tenancies (id)
+            );
+        """
+
+        if sqlite3_exec(db, createRentPaymentsTableSQL, nil, nil, nil) != SQLITE_OK {
+            print("Error creating rent_payments table")
+        }
     }
     
     // MARK: - Address Operations
@@ -419,6 +434,72 @@ public class DatabaseManager {
             }
         }
         
+        sqlite3_finalize(statement)
+        return nil
+    }
+
+    // MARK: - Rent Payment Operations
+
+    @available(iOS 17.0, *)
+    public func saveRentPayment(_ payment: RentPaymentModel) throws -> Int64 {
+        let insertSQL = """
+            INSERT INTO rent_payments (tenancyId, amount, paidOn, notes)
+            VALUES (?, ?, ?, ?);
+        """
+
+        var statement: OpaquePointer?
+
+        if sqlite3_prepare_v2(db, insertSQL, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int64(statement, 1, payment.tenancyId)
+            sqlite3_bind_double(statement, 2, payment.amount)
+            sqlite3_bind_text(statement, 3, (formatDate(payment.paidOn) as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 4, (payment.notes as NSString).utf8String, -1, nil)
+
+            if sqlite3_step(statement) == SQLITE_DONE {
+                let id = sqlite3_last_insert_rowid(db)
+                payment.id = id
+                sqlite3_finalize(statement)
+                return id
+            }
+        }
+
+        sqlite3_finalize(statement)
+        throw DatabaseError.saveFailed
+    }
+
+    @available(iOS 17.0, *)
+    public func getLatestRentPayment(forTenancyId tenancyId: Int64) throws -> RentPaymentModel? {
+        let querySQL = """
+            SELECT id, tenancyId, amount, paidOn, notes
+            FROM rent_payments
+            WHERE tenancyId = ?
+            ORDER BY datetime(paidOn) DESC, id DESC
+            LIMIT 1;
+        """
+
+        var statement: OpaquePointer?
+
+        if sqlite3_prepare_v2(db, querySQL, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int64(statement, 1, tenancyId)
+
+            if sqlite3_step(statement) == SQLITE_ROW {
+                let id = sqlite3_column_int64(statement, 0)
+                let tId = sqlite3_column_int64(statement, 1)
+                let amount = sqlite3_column_double(statement, 2)
+                let paidOn = String(cString: sqlite3_column_text(statement, 3))
+                let notes = String(cString: sqlite3_column_text(statement, 4))
+
+                sqlite3_finalize(statement)
+                return RentPaymentModel(
+                    id: id,
+                    tenancyId: tId,
+                    amount: amount,
+                    paidOn: parseDate(paidOn),
+                    notes: notes
+                )
+            }
+        }
+
         sqlite3_finalize(statement)
         return nil
     }

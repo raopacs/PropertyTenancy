@@ -4,39 +4,52 @@ import SwiftUI
 public struct CollapsibleView<Content: View>: View {
     let title: String
     let content: Content
+    let headerActions: AnyView?
     @State private var isExpanded: Bool = false
     
     public init(title: String, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
+        self.headerActions = nil
+    }
+
+    public init<HeaderActions: View>(title: String,
+                                     @ViewBuilder actions: () -> HeaderActions,
+                                     @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+        self.headerActions = AnyView(actions())
     }
     
     public var body: some View {
         VStack(spacing: 0) {
             // Header - always visible
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    isExpanded.toggle()
+            HStack(spacing: 12) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isExpanded.toggle()
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        Text(title)
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
                 }
-            }) {
-                HStack {
-                    Text(title)
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                    
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .rotationEffect(.degrees(isExpanded ? 0 : 0))
-                        .animation(.easeInOut(duration: 0.2), value: isExpanded)
+                .buttonStyle(PlainButtonStyle())
+
+                Spacer()
+
+                if let headerActions {
+                    headerActions
                 }
-                .padding()
-                .background(Color(.systemBackground))
             }
-            .buttonStyle(PlainButtonStyle())
+            .padding()
+            .background(Color(.systemBackground))
             
             // Content - expandable/collapsible
             if isExpanded {

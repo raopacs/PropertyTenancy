@@ -6,14 +6,17 @@
 //
 
 import SwiftUI
+import Combine
 
 @available(iOS 17.0, *)
 public struct ContentView: View {
     @State private var properties: [AddressModel] = []
     @State private var tenancies: [TenancyModel] = []
+    @State private var latestPaymentsByTenancyId: [Int64: RentPaymentModel] = [:]
     @State private var isLoading = true
     @State private var showingAddressForm = false
     @State private var showingTenancyForm = false
+    @State private var showingRentAddForm = false
     @State private var showingSettings = false
 
     public init() {}
@@ -41,7 +44,14 @@ public struct ContentView: View {
                                 }
                             }
                             
-                            CollapsibleView(title: "Tenancies (\(tenancies.count))") {
+                            CollapsibleView(title: "Tenancies (\(tenancies.count))", actions: {
+                                Button {
+                                    showingRentAddForm = true
+                                } label: {
+                                    Label("Add Rent", systemImage: "indianrupeesign.circle")
+                                }
+                                .disabled(tenancies.isEmpty)
+                            }) {
                                 VStack(spacing: 15) {
                                     if tenancies.isEmpty {
                                         ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Tenancies you add will appear here."))
@@ -49,6 +59,36 @@ public struct ContentView: View {
                                     } else {
                                         ForEach(tenancies, id: \.id) { tenancy in
                                             TenancyDisplayView(tenancy: tenancy)
+                                        }
+                                    }
+                                }
+                            }
+
+                            CollapsibleView(title: "Latest Rent Summary") {
+                                VStack(spacing: 12) {
+                                    if tenancies.isEmpty {
+                                        ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Add a tenancy to track rent."))
+                                            .padding(.vertical)
+                                    } else {
+                                        ForEach(tenancies, id: \.id) { tenancy in
+                                            HStack(alignment: .firstTextBaseline) {
+                                                Text(tenancy.name)
+                                                    .font(.subheadline)
+                                                Spacer()
+                                                if let id = tenancy.id, let payment = latestPaymentsByTenancyId[id] {
+                                                    VStack(alignment: .trailing) {
+                                                        Text(NumberFormatter.localizedString(from: NSNumber(value: payment.amount), number: .currency))
+                                                            .font(.subheadline)
+                                                            .fontWeight(.medium)
+                                                        Text(dateFormatter.string(from: payment.paidOn))
+                                                            .font(.caption)
+                                                            .foregroundColor(.secondary)
+                                                    }
+                                                } else {
+                                                    Text("—")
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -74,6 +114,13 @@ public struct ContentView: View {
                         }) {
                             Label("Add Tenancy", systemImage: "person.2.fill")
                         }
+
+                        Button(action: {
+                            showingRentAddForm = true
+                        }) {
+                            Label("Add Rent", systemImage: "indianrupeesign.circle.fill")
+                        }
+                        .disabled(tenancies.isEmpty)
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
@@ -100,6 +147,13 @@ public struct ContentView: View {
         }
         .onAppear {
             loadData()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rentPaymentSaved)) { notification in
+            guard let userInfo = notification.userInfo,
+                  let tenancyId = userInfo["tenancyId"] as? Int64 else { return }
+            if let payment = try? DatabaseManager.shared.getLatestRentPayment(forTenancyId: tenancyId) {
+                latestPaymentsByTenancyId[tenancyId] = payment
+            }
         }
         .sheet(isPresented: $showingAddressForm) {
             NavigationView {
@@ -135,6 +189,21 @@ public struct ContentView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingRentAddForm) {
+            NavigationView {
+                RentAddView(tenancies: tenancies) {
+                    showingRentAddForm = false
+                    loadLatestPayments()
+                }
+                .navigationTitle("Add Rent")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Cancel") { showingRentAddForm = false }
+                    }
+                }
+            }
+        }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
@@ -146,11 +215,29 @@ public struct ContentView: View {
         do {
             properties = try DatabaseManager.shared.getAllAddresses()
             tenancies = try DatabaseManager.shared.getAllTenancies()
+            loadLatestPayments()
         } catch {
             print("Error loading data: \(error)")
         }
         
         isLoading = false
+    }
+
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }
+
+    private func loadLatestPayments() {
+        var map: [Int64: RentPaymentModel] = [:]
+        for tenancy in tenancies {
+            if let id = tenancy.id, let payment = try? DatabaseManager.shared.getLatestRentPayment(forTenancyId: id) {
+                map[id] = payment
+            }
+        }
+        latestPaymentsByTenancyId = map
     }
 }
 @available(iOS 17.0, *)

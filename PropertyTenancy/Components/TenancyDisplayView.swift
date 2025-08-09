@@ -3,6 +3,8 @@ import SwiftUI
 @available(iOS 17.0, *)
 public struct TenancyDisplayView: View {
     let tenancy: TenancyModel
+    @State private var latestPayment: RentPaymentModel?
+    @State private var showingRentSheet = false
 
     private var currencyFormatter: NumberFormatter {
         let formatter = NumberFormatter()
@@ -68,11 +70,53 @@ public struct TenancyDisplayView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+
+            // Latest Rent Payment
+            CollapsibleView(title: "Latest Rent") {
+                if let payment = latestPayment {
+                    VStack(alignment: .leading, spacing: 8) {
+                        detailRow(label: "Amount", value: currencyFormatter.string(from: NSNumber(value: payment.amount)) ?? "")
+                        detailRow(label: "Paid On", value: dateFormatter.string(from: payment.paidOn))
+                        if !payment.notes.isEmpty {
+                            detailRow(label: "Notes", value: payment.notes)
+                        }
+                    }
+                } else {
+                    ContentUnavailableView("No rent collected", systemImage: "banknote", description: Text("Record the first rent payment."))
+                }
+
+                Button {
+                    showingRentSheet = true
+                } label: {
+                    Label("Collect Rent", systemImage: "indianrupeesign.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+            }
         }
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .onAppear(perform: loadLatestPayment)
+        .sheet(isPresented: $showingRentSheet) {
+            RentCollectionView(tenancy: tenancy) {
+                loadLatestPayment()
+            }
+        }
+    }
+
+    private func loadLatestPayment() {
+        guard let tenancyId = tenancy.id else {
+            latestPayment = nil
+            return
+        }
+        do {
+            latestPayment = try DatabaseManager.shared.getLatestRentPayment(forTenancyId: tenancyId)
+        } catch {
+            latestPayment = nil
+        }
     }
 
     // Helper view for consistent key-value rows
