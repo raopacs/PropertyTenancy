@@ -21,26 +21,21 @@ public struct TenancyDisplayView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 8) {
             // Tenant Name and Contact
             VStack(alignment: .leading) {
                 Text(tenancy.name)
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(.headline)
+                    .fontWeight(.semibold)
                 if !tenancy.contact.isEmpty {
                     Text(tenancy.contact)
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
 
             // Lease Details
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Lease Details")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .padding(.bottom, 2)
-
+            VStack(alignment: .leading, spacing: 4) {
                 detailRow(label: "Lease Start", value: dateFormatter.string(from: tenancy.leaseStartDate))
                 detailRow(label: "Agreement Signed", value: tenancy.leaseAgreementSigned ? "Yes" : "No")
                 if tenancy.leaseAgreementSigned {
@@ -51,54 +46,50 @@ public struct TenancyDisplayView: View {
                 }
             }
 
-            // Address
+            // Address (compact inline)
             if let address = tenancy.address {
-                CollapsibleView(title: "Address") {
-                    AddressDisplayView(address: address)
+                let line = compactAddressLine(address)
+                if !line.isEmpty {
+                    detailRow(label: "Address", value: line)
                 }
             }
 
             // Comments
             if !tenancy.comments.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Comments")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                    Text(tenancy.comments)
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                Text(tenancy.comments)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // Latest Rent Payment
-            CollapsibleView(title: "Latest Rent") {
+            // Latest Rent Payment (compact)
+            HStack(alignment: .firstTextBaseline) {
                 if let payment = latestPayment {
-                    VStack(alignment: .leading, spacing: 8) {
-                        detailRow(label: "Amount", value: currencyFormatter.string(from: NSNumber(value: payment.amount)) ?? "")
-                        detailRow(label: "Paid On", value: dateFormatter.string(from: payment.paidOn))
-                        if !payment.notes.isEmpty {
-                            detailRow(label: "Notes", value: payment.notes)
-                        }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(currencyFormatter.string(from: NSNumber(value: payment.amount)) ?? "")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text(dateFormatter.string(from: payment.paidOn))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
                     }
                 } else {
-                    ContentUnavailableView("No rent collected", systemImage: "banknote", description: Text("Record the first rent payment."))
+                    Text("No rent collected yet")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-
+                Spacer()
                 Button {
                     showingRentSheet = true
                 } label: {
-                    Label("Collect Rent", systemImage: "indianrupeesign.circle.fill")
-                        .frame(maxWidth: .infinity)
+                    Label("Collect", systemImage: "indianrupeesign.circle")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
                 .tint(.green)
             }
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
         .onAppear(perform: loadLatestPayment)
         .sheet(isPresented: $showingRentSheet) {
             RentCollectionView(tenancy: tenancy) {
@@ -125,14 +116,27 @@ public struct TenancyDisplayView: View {
         if !value.isEmpty {
             HStack {
                 Text(label)
-                    .font(.subheadline)
+                    .font(.caption)
                 Spacer()
                 Text(value)
-                    .font(.subheadline)
+                    .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
             }
         }
+    }
+
+    private func compactAddressLine(_ address: AddressModel) -> String {
+        var parts: [String] = []
+        if !address.title.isEmpty { parts.append(address.title) }
+        if !address.line1.isEmpty { parts.append(address.line1) }
+        if !address.line2.isEmpty { parts.append(address.line2) }
+        var cityState: [String] = []
+        if !address.city.isEmpty { cityState.append(address.city) }
+        if !address.state.isEmpty { cityState.append(address.state) }
+        if !cityState.isEmpty { parts.append(cityState.joined(separator: ", ")) }
+        if !address.pinCode.isEmpty { parts.append(address.pinCode) }
+        return parts.joined(separator: ", ")
     }
 }
 
