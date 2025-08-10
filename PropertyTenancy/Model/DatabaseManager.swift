@@ -55,6 +55,7 @@ public class DatabaseManager {
                 leaseStartDate TEXT,
                 leaseAgreementSigned INTEGER,
                 advanceAmount REAL,
+                agreedRent REAL,
                 agreementSignedDate TEXT,
                 comments TEXT,
                 FOREIGN KEY (addressId) REFERENCES addresses (id)
@@ -232,8 +233,8 @@ public class DatabaseManager {
     
     public func saveTenancy(_ tenancy: TenancyModel) throws -> Int64 {
         let insertSQL = """
-            INSERT INTO tenancies (name, contact, addressId, leaseStartDate, leaseAgreementSigned, advanceAmount, agreementSignedDate, comments)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO tenancies (name, contact, addressId, leaseStartDate, leaseAgreementSigned, advanceAmount, agreedRent, agreementSignedDate, comments)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         
         var statement: OpaquePointer?
@@ -245,8 +246,9 @@ public class DatabaseManager {
             sqlite3_bind_text(statement, 4, (formatDate(tenancy.leaseStartDate) as NSString).utf8String, -1, nil)
             sqlite3_bind_int(statement, 5, tenancy.leaseAgreementSigned ? 1 : 0)
             sqlite3_bind_double(statement, 6, tenancy.advanceAmount)
-            sqlite3_bind_text(statement, 7, (formatDate(tenancy.agreementSignedDate) as NSString).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 8, (tenancy.comments as NSString).utf8String, -1, nil)
+            sqlite3_bind_double(statement, 7, tenancy.agreedRent)
+            sqlite3_bind_text(statement, 8, (formatDate(tenancy.agreementSignedDate) as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 9, (tenancy.comments as NSString).utf8String, -1, nil)
             
             if sqlite3_step(statement) == SQLITE_DONE {
                 let id = sqlite3_last_insert_rowid(db)
@@ -267,7 +269,7 @@ public class DatabaseManager {
         
         let updateSQL = """
             UPDATE tenancies 
-            SET name = ?, contact = ?, addressId = ?, leaseStartDate = ?, leaseAgreementSigned = ?, advanceAmount = ?, agreementSignedDate = ?, comments = ?
+            SET name = ?, contact = ?, addressId = ?, leaseStartDate = ?, leaseAgreementSigned = ?, advanceAmount = ?, agreedRent = ?, agreementSignedDate = ?, comments = ?
             WHERE id = ?;
         """
         
@@ -280,9 +282,10 @@ public class DatabaseManager {
             sqlite3_bind_text(statement, 4, (formatDate(tenancy.leaseStartDate) as NSString).utf8String, -1, nil)
             sqlite3_bind_int(statement, 5, tenancy.leaseAgreementSigned ? 1 : 0)
             sqlite3_bind_double(statement, 6, tenancy.advanceAmount)
-            sqlite3_bind_text(statement, 7, (formatDate(tenancy.agreementSignedDate) as NSString).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 8, (tenancy.comments as NSString).utf8String, -1, nil)
-            sqlite3_bind_int64(statement, 9, id)
+            sqlite3_bind_double(statement, 7, tenancy.agreedRent)
+            sqlite3_bind_text(statement, 8, (formatDate(tenancy.agreementSignedDate) as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 9, (tenancy.comments as NSString).utf8String, -1, nil)
+            sqlite3_bind_int64(statement, 10, id)
             
             if sqlite3_step(statement) != SQLITE_DONE {
                 throw DatabaseError.updateFailed
@@ -310,7 +313,7 @@ public class DatabaseManager {
     
     public func getAllTenancies() throws -> [TenancyModel] {
         let querySQL = """
-            SELECT t.id, t.name, t.contact, t.addressId, t.leaseStartDate, t.leaseAgreementSigned, t.advanceAmount, t.agreementSignedDate, t.comments,
+            SELECT t.id, t.name, t.contact, t.addressId, t.leaseStartDate, t.leaseAgreementSigned, t.advanceAmount, t.agreedRent, t.agreementSignedDate, t.comments,
                    a.id as address_id, a.title, a.line1, a.line2, a.city, a.state, a.pinCode
             FROM tenancies t
             LEFT JOIN addresses a ON t.addressId = a.id;
@@ -328,19 +331,20 @@ public class DatabaseManager {
                 let leaseStartDate = String(cString: sqlite3_column_text(statement, 4))
                 let leaseAgreementSigned = sqlite3_column_int(statement, 5) == 1
                 let advanceAmount = sqlite3_column_double(statement, 6)
-                let agreementSignedDate = String(cString: sqlite3_column_text(statement, 7))
-                let comments = String(cString: sqlite3_column_text(statement, 8))
+                let agreedRent = sqlite3_column_double(statement, 7)
+                let agreementSignedDate = String(cString: sqlite3_column_text(statement, 8))
+                let comments = String(cString: sqlite3_column_text(statement, 9))
                 
                 // Create address if addressId exists
                 var address: AddressModel?
                 if addressId > 0 {
-                    let addressId = sqlite3_column_int64(statement, 9)
-                    let title = String(cString: sqlite3_column_text(statement, 10))
-                    let line1 = String(cString: sqlite3_column_text(statement, 11))
-                    let line2 = String(cString: sqlite3_column_text(statement, 12))
-                    let city = String(cString: sqlite3_column_text(statement, 13))
-                    let state = String(cString: sqlite3_column_text(statement, 14))
-                    let pinCode = String(cString: sqlite3_column_text(statement, 15))
+                    let addressId = sqlite3_column_int64(statement, 10)
+                    let title = String(cString: sqlite3_column_text(statement, 11))
+                    let line1 = String(cString: sqlite3_column_text(statement, 12))
+                    let line2 = String(cString: sqlite3_column_text(statement, 13))
+                    let city = String(cString: sqlite3_column_text(statement, 14))
+                    let state = String(cString: sqlite3_column_text(statement, 15))
+                    let pinCode = String(cString: sqlite3_column_text(statement, 16))
                     
                     address = AddressModel(
                         id: addressId,
@@ -361,6 +365,7 @@ public class DatabaseManager {
                     leaseStartDate: parseDate(leaseStartDate),
                     leaseAgreementSigned: leaseAgreementSigned,
                     advanceAmount: advanceAmount,
+                    agreedRent: agreedRent,
                     agreementSignedDate: parseDate(agreementSignedDate),
                     comments: comments
                 )
@@ -374,7 +379,7 @@ public class DatabaseManager {
     
     public func getTenancy(id: Int64) throws -> TenancyModel? {
         let querySQL = """
-            SELECT t.id, t.name, t.contact, t.addressId, t.leaseStartDate, t.leaseAgreementSigned, t.advanceAmount, t.agreementSignedDate, t.comments,
+            SELECT t.id, t.name, t.contact, t.addressId, t.leaseStartDate, t.leaseAgreementSigned, t.advanceAmount, t.agreedRent, t.agreementSignedDate, t.comments,
                    a.id as address_id, a.title, a.line1, a.line2, a.city, a.state, a.pinCode
             FROM tenancies t
             LEFT JOIN addresses a ON t.addressId = a.id
@@ -394,19 +399,20 @@ public class DatabaseManager {
                 let leaseStartDate = String(cString: sqlite3_column_text(statement, 4))
                 let leaseAgreementSigned = sqlite3_column_int(statement, 5) == 1
                 let advanceAmount = sqlite3_column_double(statement, 6)
-                let agreementSignedDate = String(cString: sqlite3_column_text(statement, 7))
-                let comments = String(cString: sqlite3_column_text(statement, 8))
+                let agreedRent = sqlite3_column_double(statement, 7)
+                let agreementSignedDate = String(cString: sqlite3_column_text(statement, 8))
+                let comments = String(cString: sqlite3_column_text(statement, 9))
                 
                 // Create address if addressId exists
                 var address: AddressModel?
                 if addressId > 0 {
-                    let addressId = sqlite3_column_int64(statement, 9)
-                    let title = String(cString: sqlite3_column_text(statement, 10))
-                    let line1 = String(cString: sqlite3_column_text(statement, 11))
-                    let line2 = String(cString: sqlite3_column_text(statement, 12))
-                    let city = String(cString: sqlite3_column_text(statement, 13))
-                    let state = String(cString: sqlite3_column_text(statement, 14))
-                    let pinCode = String(cString: sqlite3_column_text(statement, 15))
+                    let addressId = sqlite3_column_int64(statement, 10)
+                    let title = String(cString: sqlite3_column_text(statement, 11))
+                    let line1 = String(cString: sqlite3_column_text(statement, 12))
+                    let line2 = String(cString: sqlite3_column_text(statement, 13))
+                    let city = String(cString: sqlite3_column_text(statement, 14))
+                    let state = String(cString: sqlite3_column_text(statement, 15))
+                    let pinCode = String(cString: sqlite3_column_text(statement, 16))
                     
                     address = AddressModel(
                         id: addressId,
@@ -428,6 +434,7 @@ public class DatabaseManager {
                     leaseStartDate: parseDate(leaseStartDate),
                     leaseAgreementSigned: leaseAgreementSigned,
                     advanceAmount: advanceAmount,
+                    agreedRent: agreedRent,
                     agreementSignedDate: parseDate(agreementSignedDate),
                     comments: comments
                 )

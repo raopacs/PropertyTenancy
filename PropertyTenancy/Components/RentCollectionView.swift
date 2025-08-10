@@ -6,12 +6,15 @@ public struct RentCollectionView: View {
     var onSaved: () -> Void
 
     @State private var amount: Double = 0.0
+    @State private var amountText: String = ""
     @State private var paidOn: Date = Date()
     @State private var notes: String = ""
 
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @Environment(\.dismiss) private var dismiss
+
+    @FocusState private var isAmountFocused: Bool
 
     private var currencyFormatter: NumberFormatter {
         let formatter = NumberFormatter()
@@ -35,9 +38,20 @@ public struct RentCollectionView: View {
                 HStack {
                     Text("Amount")
                     Spacer()
-                    TextField("Amount", value: $amount, formatter: currencyFormatter)
+                    TextField("0.00", text: $amountText)
+                        .keyboardType(.decimalPad)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .frame(width: 180)
+                        .focused($isAmountFocused)
+                        .onChange(of: isAmountFocused) { focused in
+                            if focused {
+                                if parseAmountText(amountText) == 0 { amountText = "" }
+                            } else {
+                                let parsed = parseAmountText(amountText)
+                                amount = parsed
+                                amountText = parsed > 0 ? (currencyFormatter.string(from: NSNumber(value: parsed)) ?? "") : ""
+                            }
+                        }
                 }
 
                 DatePicker("Paid On", selection: $paidOn, displayedComponents: .date)
@@ -64,6 +78,9 @@ public struct RentCollectionView: View {
             }
         }
         .padding()
+        .onAppear {
+            amountText = amount > 0 ? (currencyFormatter.string(from: NSNumber(value: amount)) ?? "") : ""
+        }
         .alert("Rent Collection", isPresented: $showingAlert) {
             Button("OK") {}
         } message: {
@@ -77,6 +94,8 @@ public struct RentCollectionView: View {
             showingAlert = true
             return
         }
+        // Sync latest text to numeric amount
+        amount = parseAmountText(amountText)
         do {
             let payment = RentPaymentModel(tenancyId: tenancyId, amount: amount, paidOn: paidOn, notes: notes)
             _ = try DatabaseManager.shared.saveRentPayment(payment)
@@ -89,6 +108,12 @@ public struct RentCollectionView: View {
             alertMessage = "Error: \(error.localizedDescription)"
             showingAlert = true
         }
+    }
+
+    private func parseAmountText(_ text: String) -> Double {
+        let allowedCharacters = Set("0123456789.")
+        let filtered = text.filter { allowedCharacters.contains($0) }
+        return Double(filtered) ?? 0.0
     }
 }
 

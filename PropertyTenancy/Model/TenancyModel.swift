@@ -9,6 +9,7 @@ public final class TenancyModel {
     public var leaseStartDate: Date
     public var leaseAgreementSigned: Bool
     public var advanceAmount: Double
+    public var agreedRent: Double
     public var agreementSignedDate: Date
     public var comments: String
 
@@ -20,6 +21,7 @@ public final class TenancyModel {
                 leaseStartDate: Date = Date(),
                 leaseAgreementSigned: Bool = false,
                 advanceAmount: Double = 0.0,
+                agreedRent: Double = 0.0,
                 agreementSignedDate: Date = Date(),
                 comments: String = "") {
         self.id = id
@@ -29,6 +31,7 @@ public final class TenancyModel {
         self.leaseStartDate = leaseStartDate
         self.leaseAgreementSigned = leaseAgreementSigned
         self.advanceAmount = advanceAmount
+        self.agreedRent = agreedRent
         self.agreementSignedDate = agreementSignedDate
         self.comments = comments
     }

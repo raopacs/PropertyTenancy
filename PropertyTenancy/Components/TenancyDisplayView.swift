@@ -44,6 +44,9 @@ public struct TenancyDisplayView: View {
                 if tenancy.advanceAmount > 0 {
                     detailRow(label: "Advance Paid", value: currencyFormatter.string(from: NSNumber(value: tenancy.advanceAmount)) ?? "")
                 }
+                if tenancy.agreedRent > 0 {
+                    detailRow(label: "Agreed Rent", value: currencyFormatter.string(from: NSNumber(value: tenancy.agreedRent)) ?? "")
+                }
             }
 
             // Address (compact inline)
@@ -63,6 +66,7 @@ public struct TenancyDisplayView: View {
             }
 
             // Latest Rent Payment (compact)
+            detailRow(label: "Latest Rent Payment", value: "-")
             HStack(alignment: .firstTextBaseline) {
                 if let payment = latestPayment {
                     VStack(alignment: .leading, spacing: 2) {

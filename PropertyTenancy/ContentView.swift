@@ -88,6 +88,13 @@ public struct ContentView: View {
                                                     Text("—")
                                                         .foregroundColor(.secondary)
                                                 }
+                                                Button {
+                                                    collectDefaultRent(for: tenancy)
+                                                } label: {
+                                                    Label("Quick Collect", systemImage: "checkmark.circle")
+                                                }
+                                                .buttonStyle(.bordered)
+                                                .tint(.green)
                                             }
                                         }
                                     }
@@ -238,6 +245,21 @@ public struct ContentView: View {
             }
         }
         latestPaymentsByTenancyId = map
+    }
+
+    private func collectDefaultRent(for tenancy: TenancyModel) {
+        guard let tenancyId = tenancy.id else { return }
+        let amount = tenancy.agreedRent
+        guard amount > 0 else { return }
+        do {
+            let payment = RentPaymentModel(tenancyId: tenancyId, amount: amount, paidOn: Date(), notes: "quick collected rent")
+            _ = try DatabaseManager.shared.saveRentPayment(payment)
+            if let latest = try? DatabaseManager.shared.getLatestRentPayment(forTenancyId: tenancyId) {
+                latestPaymentsByTenancyId[tenancyId] = latest
+            }
+        } catch {
+            // Ignore errors for quick action
+        }
     }
 }
 @available(iOS 17.0, *)
