@@ -9,7 +9,6 @@ public struct RentAddView: View {
     @State private var amount: Double = 0.0
     @State private var amountText: String = ""
     @State private var paidOn: Date = Date()
-    @State private var dueDate: Date = Date()
     @State private var notes: String = ""
 
     @State private var showingAlert = false
@@ -31,9 +30,6 @@ public struct RentAddView: View {
         _selectedTenancyId = State(initialValue: tenancies.first?.id)
         
         // Set default due date to next month
-        if let firstTenancy = tenancies.first {
-            _dueDate = State(initialValue: Calendar.current.date(byAdding: .month, value: 1, to: firstTenancy.leaseStartDate) ?? Date())
-        }
     }
 
     public var body: some View {
@@ -50,8 +46,6 @@ public struct RentAddView: View {
             .pickerStyle(.menu)
             .onChange(of: selectedTenancyId) { newTenancyId in
                 if let tenancy = tenancies.first(where: { $0.id == newTenancyId }) {
-                    // Update due date based on selected tenancy
-                    dueDate = Calendar.current.date(byAdding: .month, value: 1, to: tenancy.leaseStartDate) ?? Date()
                 }
             }
             
@@ -67,16 +61,6 @@ public struct RentAddView: View {
                             .fontWeight(.semibold)
                     }
                     
-                    if dueDate < Date() {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                            Text("Payment is overdue!")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                                .fontWeight(.medium)
-                        }
-                    }
                 }
                 .padding()
                 .background(Color(.systemGray6))
@@ -106,8 +90,6 @@ public struct RentAddView: View {
                 DatePicker("Paid On", selection: $paidOn, displayedComponents: .date)
                     .frame(maxWidth: .infinity)
                 
-                DatePicker("Due Date", selection: $dueDate, displayedComponents: .date)
-                    .frame(maxWidth: .infinity)
             }
 
             VStack(alignment: .leading) {
@@ -163,8 +145,9 @@ public struct RentAddView: View {
             _ = try DatabaseManager.shared.saveRentPayment(payment)
             
             // Schedule notification for next month's rent
-            let nextMonthDueDate = Calendar.current.date(byAdding: .month, value: 1, to: dueDate) ?? Date()
-            NotificationManager.shared.scheduleRentPaymentReminder(for: selectedTenancy, dueDate: nextMonthDueDate)
+            // TODO: Re-implement notification scheduling with monthly due date from tenancy
+            // let nextMonthDueDate = Calendar.current.date(byAdding: .month, value: 1, to: dueDate) ?? Date()
+            // NotificationManager.shared.scheduleRentPaymentReminder(for: selectedTenancy, dueDate: nextMonthDueDate)
             
             NotificationCenter.default.post(name: .rentPaymentSaved, object: nil, userInfo: ["tenancyId": tenancyId])
             alertMessage = "Payment saved. Next month reminder scheduled."

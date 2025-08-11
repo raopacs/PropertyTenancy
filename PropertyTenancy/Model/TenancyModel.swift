@@ -10,6 +10,7 @@ public final class TenancyModel {
     public var leaseAgreementSigned: Bool
     public var advanceAmount: Double
     public var agreedRent: Double
+    public var monthlyDueDate: Int // Day of the month, e.g., 1 for 1st
     public var agreementSignedDate: Date
     public var comments: String
 
@@ -22,6 +23,7 @@ public final class TenancyModel {
                 leaseAgreementSigned: Bool = false,
                 advanceAmount: Double = 0.0,
                 agreedRent: Double = 0.0,
+                monthlyDueDate: Int = 1,
                 agreementSignedDate: Date = Date(),
                 comments: String = "") {
         self.id = id
@@ -32,6 +34,7 @@ public final class TenancyModel {
         self.leaseAgreementSigned = leaseAgreementSigned
         self.advanceAmount = advanceAmount
         self.agreedRent = agreedRent
+        self.monthlyDueDate = monthlyDueDate
         self.agreementSignedDate = agreementSignedDate
         self.comments = comments
     }

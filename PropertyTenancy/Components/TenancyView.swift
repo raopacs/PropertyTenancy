@@ -103,6 +103,17 @@ public struct TenancyView: View {
                         }
                 }
 
+                HStack {
+                    Text("Monthly Rent Due Date")
+                    Spacer()
+                    Picker("Due Date", selection: $tenancy.monthlyDueDate) {
+                        ForEach(1...28, id: \.self) { day in
+                            Text("\(day)").tag(day)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
                 DatePicker("Agreement Signed Date", selection: $tenancy.agreementSignedDate, displayedComponents: .date)
 
                 VStack(alignment: .leading) {
