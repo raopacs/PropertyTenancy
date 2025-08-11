@@ -18,6 +18,7 @@ public struct ContentView: View {
     @State private var showingTenancyForm = false
     @State private var showingRentAddForm = false
     @State private var showingSettings = false
+    @State private var hasNotifications = false
 
     public init() {}
 
@@ -146,14 +147,24 @@ public struct ContentView: View {
                     Button(action: {
                         showingSettings = true
                     }) {
-                        Image(systemName: "gearshape.fill")
-                            .font(.title2)
+                        ZStack {
+                            Image(systemName: "gearshape.fill")
+                                .font(.title2)
+                            
+                            if hasNotifications {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 8, y: -8)
+                            }
+                        }
                     }
                 }
             }
         }
         .onAppear {
             loadData()
+            checkNotifications()
         }
         .onReceive(NotificationCenter.default.publisher(for: .rentPaymentSaved)) { notification in
             guard let userInfo = notification.userInfo,
@@ -254,12 +265,60 @@ public struct ContentView: View {
         do {
             let payment = RentPaymentModel(tenancyId: tenancyId, amount: amount, paidOn: Date(), notes: "quick collected rent")
             _ = try DatabaseManager.shared.saveRentPayment(payment)
+            
+            // Schedule notification for next month
+            let nextMonthDueDate = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
+            NotificationManager.shared.scheduleRentPaymentReminder(for: tenancy, dueDate: nextMonthDueDate)
+            
             if let latest = try? DatabaseManager.shared.getLatestRentPayment(forTenancyId: tenancyId) {
                 latestPaymentsByTenancyId[tenancyId] = latest
             }
         } catch {
             // Ignore errors for quick action
         }
+    }
+    
+    private func checkNotifications() {
+        // Check for overdue rent payments
+        NotificationManager.shared.checkOverdueRentPayments()
+        
+        // Check for tenancy renewals
+        NotificationManager.shared.checkTenancyRenewals()
+        
+        // Check if there are any active notifications
+        checkActiveNotifications()
+    }
+    
+    private func checkActiveNotifications() {
+        let currentDate = Date()
+        var hasActiveNotifications = false
+        
+        for tenancy in tenancies {
+            // Check for overdue rent
+            if let lastPayment = try? DatabaseManager.shared.getLatestRentPayment(forTenancyId: tenancy.id ?? 0) {
+                let nextDueDate = Calendar.current.date(byAdding: .month, value: 1, to: lastPayment.paidOn) ?? currentDate
+                if nextDueDate < currentDate {
+                    hasActiveNotifications = true
+                    break
+                }
+            } else {
+                // No payments yet, check lease start
+                let firstDueDate = Calendar.current.date(byAdding: .month, value: 1, to: tenancy.leaseStartDate) ?? currentDate
+                if firstDueDate < currentDate {
+                    hasActiveNotifications = true
+                    break
+                }
+            }
+            
+            // Check for tenancy renewal
+            let renewalDate = Calendar.current.date(byAdding: .month, value: 11, to: tenancy.agreementSignedDate) ?? currentDate
+            if renewalDate <= currentDate {
+                hasActiveNotifications = true
+                break
+            }
+        }
+        
+        hasNotifications = hasActiveNotifications
     }
 }
 @available(iOS 17.0, *)

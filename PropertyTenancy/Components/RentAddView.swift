@@ -9,6 +9,7 @@ public struct RentAddView: View {
     @State private var amount: Double = 0.0
     @State private var amountText: String = ""
     @State private var paidOn: Date = Date()
+    @State private var dueDate: Date = Date()
     @State private var notes: String = ""
 
     @State private var showingAlert = false
@@ -28,6 +29,11 @@ public struct RentAddView: View {
         self.tenancies = tenancies
         self.onSaved = onSaved
         _selectedTenancyId = State(initialValue: tenancies.first?.id)
+        
+        // Set default due date to next month
+        if let firstTenancy = tenancies.first {
+            _dueDate = State(initialValue: Calendar.current.date(byAdding: .month, value: 1, to: firstTenancy.leaseStartDate) ?? Date())
+        }
     }
 
     public var body: some View {
@@ -42,6 +48,40 @@ public struct RentAddView: View {
                 }
             }
             .pickerStyle(.menu)
+            .onChange(of: selectedTenancyId) { newTenancyId in
+                if let tenancy = tenancies.first(where: { $0.id == newTenancyId }) {
+                    // Update due date based on selected tenancy
+                    dueDate = Calendar.current.date(byAdding: .month, value: 1, to: tenancy.leaseStartDate) ?? Date()
+                }
+            }
+            
+            if let selectedTenancy = tenancies.first(where: { $0.id == selectedTenancyId }) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Agreed Rent:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("₹\(selectedTenancy.agreedRent, specifier: "%.2f")")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    
+                    if dueDate < Date() {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("Payment is overdue!")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .fontWeight(.medium)
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+            }
 
             HStack {
                 Text("Amount")
@@ -62,7 +102,13 @@ public struct RentAddView: View {
                     }
             }
 
-            DatePicker("Paid On", selection: $paidOn, displayedComponents: .date)
+            HStack {
+                DatePicker("Paid On", selection: $paidOn, displayedComponents: .date)
+                    .frame(maxWidth: .infinity)
+                
+                DatePicker("Due Date", selection: $dueDate, displayedComponents: .date)
+                    .frame(maxWidth: .infinity)
+            }
 
             VStack(alignment: .leading) {
                 Text("Notes")
@@ -102,13 +148,26 @@ public struct RentAddView: View {
             showingAlert = true
             return
         }
+        
+        guard let selectedTenancy = tenancies.first(where: { $0.id == tenancyId }) else {
+            alertMessage = "Selected tenancy not found"
+            showingAlert = true
+            return
+        }
+        
         // Sync latest text to numeric amount
         amount = parseAmountText(amountText)
+        
         do {
             let payment = RentPaymentModel(tenancyId: tenancyId, amount: amount, paidOn: paidOn, notes: notes)
             _ = try DatabaseManager.shared.saveRentPayment(payment)
+            
+            // Schedule notification for next month's rent
+            let nextMonthDueDate = Calendar.current.date(byAdding: .month, value: 1, to: dueDate) ?? Date()
+            NotificationManager.shared.scheduleRentPaymentReminder(for: selectedTenancy, dueDate: nextMonthDueDate)
+            
             NotificationCenter.default.post(name: .rentPaymentSaved, object: nil, userInfo: ["tenancyId": tenancyId])
-            alertMessage = "Payment saved."
+            alertMessage = "Payment saved. Next month reminder scheduled."
             showingAlert = true
             onSaved()
             dismiss()
