@@ -24,142 +24,208 @@ public struct ContentView: View {
 
     @available(iOS 17.0, *)
     public var body: some View {
-        NavigationStack {
-            Group {
-                if isLoading {
-                    ProgressView("Loading data...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            CollapsibleView(title: "Properties (\(properties.count))") {
-                                VStack(spacing: 15) {
-                                    if properties.isEmpty {
-                                        ContentUnavailableView("No Properties", systemImage: "house.fill", description: Text("Properties you add will appear here."))
-                                            .padding(.vertical)
-                                    } else {
-                                        ForEach(properties, id: \.id) { property in
-                                            AddressDisplayView(address: property)
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            CollapsibleView(title: "Tenancies (\(tenancies.count))", actions: {
-                                Button {
-                                    showingRentAddForm = true
-                                } label: {
-                                    Label("Add Rent", systemImage: "indianrupeesign.circle")
-                                }
-                                .disabled(tenancies.isEmpty)
-                            }) {
-                                VStack(spacing: 15) {
-                                    if tenancies.isEmpty {
-                                        ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Tenancies you add will appear here."))
-                                            .padding(.vertical)
-                                    } else {
-                                        ForEach(tenancies, id: \.id) { tenancy in
-                                            TenancyDisplayView(tenancy: tenancy)
-                                        }
-                                    }
-                                }
-                            }
-
-                            CollapsibleView(title: "Latest Rent Summary") {
-                                VStack(spacing: 12) {
-                                    if tenancies.isEmpty {
-                                        ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Add a tenancy to track rent."))
-                                            .padding(.vertical)
-                                    } else {
-                                        ForEach(tenancies, id: \.id) { tenancy in
-                                            HStack(alignment: .firstTextBaseline) {
-                                                Text(tenancy.name)
-                                                    .font(.subheadline)
-                                                Spacer()
-                                                if let id = tenancy.id, let payment = latestPaymentsByTenancyId[id] {
-                                                    VStack(alignment: .trailing) {
-                                                        Text(NumberFormatter.localizedString(from: NSNumber(value: payment.amount), number: .currency))
-                                                            .font(.subheadline)
-                                                            .fontWeight(.medium)
-                                                        Text(dateFormatter.string(from: payment.paidOn))
-                                                            .font(.caption)
-                                                            .foregroundColor(.secondary)
-                                                    }
-                                                } else {
-                                                    Text("—")
-                                                        .foregroundColor(.secondary)
-                                                }
-                                                Button {
-                                                    collectDefaultRent(for: tenancy)
-                                                } label: {
-                                                    Label("Quick Collect", systemImage: "checkmark.circle")
-                                                }
-                                                .buttonStyle(.bordered)
-                                                .tint(.green)
+        TabView {
+            // Properties Tab
+            NavigationStack {
+                Group {
+                    if isLoading {
+                        ProgressView("Loading data...")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 20) {
+                                CollapsibleView(title: "Properties (\(properties.count))") {
+                                    VStack(spacing: 15) {
+                                        if properties.isEmpty {
+                                            ContentUnavailableView("No Properties", systemImage: "house.fill", description: Text("Properties you add will appear here."))
+                                                .padding(.vertical)
+                                        } else {
+                                            ForEach(properties, id: \.id) { property in
+                                                AddressDisplayView(address: property)
                                             }
                                         }
                                     }
                                 }
                             }
+                            .padding()
                         }
-                        .padding()
                     }
                 }
-                        }
-            .navigationTitle("Property Tenancy")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Menu {
+                .navigationTitle("Properties")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
                         Button(action: {
                             showingAddressForm = true
                         }) {
                             Label("Add Property", systemImage: "house.fill")
                         }
-                        
+                    }
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            loadData() // Refresh data
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                    }
+                }
+            }
+            .tabItem {
+                Image(systemName: "house.fill")
+                Text("Properties")
+            }
+            
+            // Tenancies Tab
+            NavigationStack {
+                Group {
+                    if isLoading {
+                        ProgressView("Loading data...")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 20) {
+                                CollapsibleView(title: "Tenancies (\(tenancies.count))") {
+                                    VStack(spacing: 15) {
+                                        if tenancies.isEmpty {
+                                            ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Tenancies you add will appear here."))
+                                                .padding(.vertical)
+                                        } else {
+                                            ForEach(tenancies, id: \.id) { tenancy in
+                                                TenancyDisplayView(tenancy: tenancy)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding()
+                        }
+                    }
+                }
+                .navigationTitle("Tenancies")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
                         Button(action: {
                             showingTenancyForm = true
                         }) {
                             Label("Add Tenancy", systemImage: "person.2.fill")
                         }
-
+                    }
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            loadData() // Refresh data
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                    }
+                }
+            }
+            .tabItem {
+                Image(systemName: "person.2.fill")
+                Text("Tenancies")
+            }
+            
+            // Rent Tab
+            NavigationStack {
+                Group {
+                    if isLoading {
+                        ProgressView("Loading data...")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 20) {
+                                CollapsibleView(title: "Latest Rent Summary", actions: {
+                                    Button {
+                                        showingRentAddForm = true
+                                    } label: {
+                                        Label("Add Rent", systemImage: "indianrupeesign.circle")
+                                    }
+                                    .disabled(tenancies.isEmpty)
+                                }) {
+                                    VStack(spacing: 12) {
+                                        if tenancies.isEmpty {
+                                            ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Add a tenancy to track rent."))
+                                                .padding(.vertical)
+                                        } else {
+                                            ForEach(tenancies, id: \.id) { tenancy in
+                                                HStack(alignment: .firstTextBaseline) {
+                                                    Text(tenancy.name)
+                                                        .font(.subheadline)
+                                                    Spacer()
+                                                    if let id = tenancy.id, let payment = latestPaymentsByTenancyId[id] {
+                                                        VStack(alignment: .trailing) {
+                                                            Text(NumberFormatter.localizedString(from: NSNumber(value: payment.amount), number: .currency))
+                                                                .font(.subheadline)
+                                                                .fontWeight(.medium)
+                                                            Text(dateFormatter.string(from: payment.paidOn))
+                                                                .font(.caption)
+                                                                .foregroundColor(.secondary)
+                                                        }
+                                                    } else {
+                                                        Text("—")
+                                                            .foregroundColor(.secondary)
+                                                    }
+                                                    Button {
+                                                        collectDefaultRent(for: tenancy)
+                                                    } label: {
+                                                        Label("Quick Collect", systemImage: "checkmark.circle")
+                                                    }
+                                                    .buttonStyle(.bordered)
+                                                    .tint(.green)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding()
+                        }
+                    }
+                }
+                .navigationTitle("Rent")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
                         Button(action: {
                             showingRentAddForm = true
                         }) {
                             Label("Add Rent", systemImage: "indianrupeesign.circle.fill")
                         }
                         .disabled(tenancies.isEmpty)
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
                     }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        loadData() // Refresh data
-                    }) {
-                        Image(systemName: "arrow.clockwise")
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            loadData() // Refresh data
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                        }
                     }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showingSettings = true
-                    }) {
-                        ZStack {
-                            Image(systemName: "gearshape.fill")
-                                .font(.title2)
-                            
-                            if hasNotifications {
-                                Circle()
-                                    .fill(Color.red)
-                                    .frame(width: 8, height: 8)
-                                    .offset(x: 8, y: -8)
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            showingSettings = true
+                        }) {
+                            ZStack {
+                                Image(systemName: "gearshape.fill")
+                                    .font(.title2)
+                                
+                                if hasNotifications {
+                                    Circle()
+                                        .fill(Color.red)
+                                        .frame(width: 8, height: 8)
+                                        .offset(x: 8, y: -8)
+                                }
                             }
                         }
                     }
                 }
+            }
+            .tabItem {
+                Image(systemName: "indianrupeesign.circle.fill")
+                Text("Rent")
             }
         }
         .onAppear {
