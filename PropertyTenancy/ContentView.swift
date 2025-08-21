@@ -16,9 +16,11 @@ public struct ContentView: View {
     @State private var isLoading = true
     @State private var showingAddressForm = false
     @State private var showingTenancyForm = false
+    @State private var showingTenancyEditForm = false
     @State private var showingRentAddForm = false
     @State private var showingSettings = false
     @State private var hasNotifications = false
+    @State private var editingTenancy: TenancyModel?
 
     public init() {}
 
@@ -34,15 +36,13 @@ public struct ContentView: View {
                     } else {
                         ScrollView {
                             VStack(spacing: 20) {
-                                CollapsibleView(title: "Properties (\(properties.count))") {
-                                    VStack(spacing: 15) {
-                                        if properties.isEmpty {
-                                            ContentUnavailableView("No Properties", systemImage: "house.fill", description: Text("Properties you add will appear here."))
-                                                .padding(.vertical)
-                                        } else {
-                                            ForEach(properties, id: \.id) { property in
-                                                AddressDisplayView(address: property)
-                                            }
+                                VStack(spacing: 15) {
+                                    if properties.isEmpty {
+                                        ContentUnavailableView("No Properties", systemImage: "house.fill", description: Text("Properties you add will appear here."))
+                                            .padding(.vertical)
+                                    } else {
+                                        ForEach(properties, id: \.id) { property in
+                                            AddressDisplayView(address: property)
                                         }
                                     }
                                 }
@@ -58,7 +58,7 @@ public struct ContentView: View {
                         Button(action: {
                             showingAddressForm = true
                         }) {
-                            Label("Add Property", systemImage: "house.fill")
+                            Label("Add Property", systemImage: "plus.circle.fill")
                         }
                     }
                     
@@ -85,15 +85,25 @@ public struct ContentView: View {
                     } else {
                         ScrollView {
                             VStack(spacing: 20) {
-                                CollapsibleView(title: "Tenancies (\(tenancies.count))") {
-                                    VStack(spacing: 15) {
-                                        if tenancies.isEmpty {
-                                            ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Tenancies you add will appear here."))
-                                                .padding(.vertical)
-                                        } else {
-                                            ForEach(tenancies, id: \.id) { tenancy in
-                                                TenancyDisplayView(tenancy: tenancy)
-                                            }
+                                VStack(spacing: 15) {
+                                    if tenancies.isEmpty {
+                                        ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Tenancies you add will appear here."))
+                                            .padding(.vertical)
+                                    } else {
+                                        ForEach(tenancies, id: \.id) { tenancy in
+                                            TenancyDisplayView(tenancy: tenancy)
+                                                .onTapGesture {
+                                                    editingTenancy = tenancy
+                                                    showingTenancyEditForm = true
+                                                }
+                                                .contextMenu {
+                                                    Button {
+                                                        editingTenancy = tenancy
+                                                        showingTenancyEditForm = true
+                                                    } label: {
+                                                        Label("Edit", systemImage: "pencil")
+                                                    }
+                                                }
                                         }
                                     }
                                 }
@@ -109,7 +119,7 @@ public struct ContentView: View {
                         Button(action: {
                             showingTenancyForm = true
                         }) {
-                            Label("Add Tenancy", systemImage: "person.2.fill")
+                            Label("Add Tenancy", systemImage: "plus.circle.fill")
                         }
                     }
                     
@@ -136,46 +146,35 @@ public struct ContentView: View {
                     } else {
                         ScrollView {
                             VStack(spacing: 20) {
-                                CollapsibleView(title: "Latest Rent Summary", actions: {
-                                    Button {
-                                        showingRentAddForm = true
-                                    } label: {
-                                        Label("Add Rent", systemImage: "indianrupeesign.circle")
-                                    }
-                                    .disabled(tenancies.isEmpty)
-                                }) {
-                                    VStack(spacing: 12) {
-                                        if tenancies.isEmpty {
-                                            ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Add a tenancy to track rent."))
-                                                .padding(.vertical)
-                                        } else {
-                                            ForEach(tenancies, id: \.id) { tenancy in
-                                                HStack(alignment: .firstTextBaseline) {
-                                                    Text(tenancy.name)
+                                if tenancies.isEmpty {
+                                    ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Add a tenancy to track rent."))
+                                        .padding(.vertical)
+                                } else {
+                                    ForEach(tenancies, id: \.id) { tenancy in
+                                        HStack(alignment: .firstTextBaseline) {
+                                            Text(tenancy.name)
+                                                .font(.subheadline)
+                                            Spacer()
+                                            if let id = tenancy.id, let payment = latestPaymentsByTenancyId[id] {
+                                                VStack(alignment: .trailing) {
+                                                    Text(NumberFormatter.localizedString(from: NSNumber(value: payment.amount), number: .currency))
                                                         .font(.subheadline)
-                                                    Spacer()
-                                                    if let id = tenancy.id, let payment = latestPaymentsByTenancyId[id] {
-                                                        VStack(alignment: .trailing) {
-                                                            Text(NumberFormatter.localizedString(from: NSNumber(value: payment.amount), number: .currency))
-                                                                .font(.subheadline)
-                                                                .fontWeight(.medium)
-                                                            Text(dateFormatter.string(from: payment.paidOn))
-                                                                .font(.caption)
-                                                                .foregroundColor(.secondary)
-                                                        }
-                                                    } else {
-                                                        Text("—")
-                                                            .foregroundColor(.secondary)
-                                                    }
-                                                    Button {
-                                                        collectDefaultRent(for: tenancy)
-                                                    } label: {
-                                                        Label("Quick Collect", systemImage: "checkmark.circle")
-                                                    }
-                                                    .buttonStyle(.bordered)
-                                                    .tint(.green)
+                                                        .fontWeight(.medium)
+                                                    Text(dateFormatter.string(from: payment.paidOn))
+                                                        .font(.caption)
+                                                        .foregroundColor(.secondary)
                                                 }
+                                            } else {
+                                                Text("—")
+                                                    .foregroundColor(.secondary)
                                             }
+                                            Button {
+                                                collectDefaultRent(for: tenancy)
+                                            } label: {
+                                                Label("Quick Collect", systemImage: "checkmark.circle")
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .tint(.green)
                                         }
                                     }
                                 }
@@ -191,7 +190,7 @@ public struct ContentView: View {
                         Button(action: {
                             showingRentAddForm = true
                         }) {
-                            Label("Add Rent", systemImage: "indianrupeesign.circle.fill")
+                            Label("Add Rent", systemImage: "plus.circle.fill")
                         }
                         .disabled(tenancies.isEmpty)
                     }
@@ -270,6 +269,35 @@ public struct ContentView: View {
                             showingTenancyForm = false
                         }
                     }
+                }
+            }
+        }
+        .sheet(isPresented: $showingTenancyEditForm) {
+            NavigationView {
+                if let toEdit = editingTenancy {
+                    TenancyView(tenancy: toEdit) {
+                        showingTenancyEditForm = false
+                        editingTenancy = nil
+                        loadData()
+                    }
+                    .navigationTitle("Edit Tenancy")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("Cancel") {
+                                showingTenancyEditForm = false
+                                editingTenancy = nil
+                            }
+                        }
+                    }
+                } else {
+                    Text("No tenancy selected")
+                        .navigationTitle("Edit Tenancy")
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button("Close") { showingTenancyEditForm = false }
+                            }
+                        }
                 }
             }
         }
