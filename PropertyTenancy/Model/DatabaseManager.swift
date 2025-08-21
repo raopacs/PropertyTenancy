@@ -517,6 +517,76 @@ public class DatabaseManager {
         sqlite3_finalize(statement)
         return nil
     }
+
+    @available(iOS 17.0, *)
+    public func getAllRentPayments() throws -> [RentPaymentModel] {
+        let querySQL = """
+            SELECT id, tenancyId, amount, paidOn, notes
+            FROM rent_payments
+            ORDER BY datetime(paidOn) DESC, id DESC;
+        """
+
+        var statement: OpaquePointer?
+        var payments: [RentPaymentModel] = []
+
+        if sqlite3_prepare_v2(db, querySQL, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let id = sqlite3_column_int64(statement, 0)
+                let tenancyId = sqlite3_column_int64(statement, 1)
+                let amount = sqlite3_column_double(statement, 2)
+                let paidOn = String(cString: sqlite3_column_text(statement, 3))
+                let notes = String(cString: sqlite3_column_text(statement, 4))
+
+                let payment = RentPaymentModel(
+                    id: id,
+                    tenancyId: tenancyId,
+                    amount: amount,
+                    paidOn: parseDate(paidOn),
+                    notes: notes
+                )
+                payments.append(payment)
+            }
+        }
+
+        sqlite3_finalize(statement)
+        return payments
+    }
+
+    @available(iOS 17.0, *)
+    public func getRentPayments(forTenancyId tenancyId: Int64) throws -> [RentPaymentModel] {
+        let querySQL = """
+            SELECT id, tenancyId, amount, paidOn, notes
+            FROM rent_payments
+            WHERE tenancyId = ?
+            ORDER BY datetime(paidOn) DESC, id DESC;
+        """
+
+        var statement: OpaquePointer?
+        var payments: [RentPaymentModel] = []
+
+        if sqlite3_prepare_v2(db, querySQL, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int64(statement, 1, tenancyId)
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let id = sqlite3_column_int64(statement, 0)
+                let tId = sqlite3_column_int64(statement, 1)
+                let amount = sqlite3_column_double(statement, 2)
+                let paidOn = String(cString: sqlite3_column_text(statement, 3))
+                let notes = String(cString: sqlite3_column_text(statement, 4))
+
+                let payment = RentPaymentModel(
+                    id: id,
+                    tenancyId: tId,
+                    amount: amount,
+                    paidOn: parseDate(paidOn),
+                    notes: notes
+                )
+                payments.append(payment)
+            }
+        }
+
+        sqlite3_finalize(statement)
+        return payments
+    }
     
     // MARK: - Helper Methods
     

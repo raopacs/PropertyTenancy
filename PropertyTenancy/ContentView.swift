@@ -23,6 +23,8 @@ public struct ContentView: View {
     @State private var hasNotifications = false
     @State private var editingAddress: AddressModel?
     @State private var editingTenancy: TenancyModel?
+    @State private var showingRentHistory = false
+    @State private var selectedTenancyForHistory: TenancyModel?
 
     public init() {}
 
@@ -159,11 +161,9 @@ public struct ContentView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         ScrollView {
-                            VStack(spacing: 20) {
-                                if tenancies.isEmpty {
-                                    ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Add a tenancy to track rent."))
-                                        .padding(.vertical)
-                                } else {
+                            VStack(spacing: 16) {
+                                // Quick overview cards
+                                if !tenancies.isEmpty {
                                     ForEach(tenancies, id: \.id) { tenancy in
                                         HStack(alignment: .firstTextBaseline) {
                                             Text(tenancy.name)
@@ -190,6 +190,11 @@ public struct ContentView: View {
                                             .buttonStyle(.bordered)
                                             .tint(.green)
                                         }
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {
+                                            selectedTenancyForHistory = tenancy
+                                            showingRentHistory = true
+                                        }
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding()
                                         .background(Color(.systemGroupedBackground))
@@ -197,6 +202,8 @@ public struct ContentView: View {
                                         .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
                                     }
                                 }
+
+                                // No global history here; tap a tenancy to view its history
                             }
                             .padding()
                         }
@@ -367,6 +374,30 @@ public struct ContentView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
+        .sheet(isPresented: $showingRentHistory) {
+            NavigationView {
+                if let tenancy = selectedTenancyForHistory {
+                    RentHistoryView(tenancy: tenancy)
+                        .navigationTitle("Rent History")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button("Close") {
+                                    showingRentHistory = false
+                                    selectedTenancyForHistory = nil
+                                }
+                            }
+                        }
+                } else {
+                    Text("No tenancy selected")
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button("Close") { showingRentHistory = false }
+                            }
+                        }
+                }
+            }
+        }
     }
     
     private func loadData() {
@@ -430,6 +461,8 @@ public struct ContentView: View {
         // Check if there are any active notifications
         checkActiveNotifications()
     }
+
+    
     
     private func checkActiveNotifications() {
         let currentDate = Date()
