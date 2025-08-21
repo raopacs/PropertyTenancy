@@ -190,6 +190,11 @@ public struct ContentView: View {
                                             .buttonStyle(.bordered)
                                             .tint(.green)
                                         }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding()
+                                        .background(Color(.systemGroupedBackground))
+                                        .cornerRadius(12)
+                                        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
                                     }
                                 }
                             }

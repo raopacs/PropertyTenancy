@@ -92,8 +92,11 @@ public struct TenancyDisplayView: View {
                 .tint(.green)
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color(.systemGroupedBackground))
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
         .onAppear(perform: loadLatestPayment)
         .sheet(isPresented: $showingRentSheet) {
             RentCollectionView(tenancy: tenancy) {
