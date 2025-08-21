@@ -15,11 +15,13 @@ public struct ContentView: View {
     @State private var latestPaymentsByTenancyId: [Int64: RentPaymentModel] = [:]
     @State private var isLoading = true
     @State private var showingAddressForm = false
+    @State private var showingAddressEditForm = false
     @State private var showingTenancyForm = false
     @State private var showingTenancyEditForm = false
     @State private var showingRentAddForm = false
     @State private var showingSettings = false
     @State private var hasNotifications = false
+    @State private var editingAddress: AddressModel?
     @State private var editingTenancy: TenancyModel?
 
     public init() {}
@@ -43,6 +45,18 @@ public struct ContentView: View {
                                     } else {
                                         ForEach(properties, id: \.id) { property in
                                             AddressDisplayView(address: property)
+                                                .onTapGesture {
+                                                    editingAddress = property
+                                                    showingAddressEditForm = true
+                                                }
+                                                .contextMenu {
+                                                    Button {
+                                                        editingAddress = property
+                                                        showingAddressEditForm = true
+                                                    } label: {
+                                                        Label("Edit", systemImage: "pencil")
+                                                    }
+                                                }
                                         }
                                     }
                                 }
@@ -252,6 +266,35 @@ public struct ContentView: View {
                             showingAddressForm = false
                         }
                     }
+                }
+            }
+        }
+        .sheet(isPresented: $showingAddressEditForm) {
+            NavigationView {
+                if let toEdit = editingAddress {
+                    AddressView(address: toEdit) {
+                        showingAddressEditForm = false
+                        editingAddress = nil
+                        loadData()
+                    }
+                    .navigationTitle("Edit Property")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("Cancel") {
+                                showingAddressEditForm = false
+                                editingAddress = nil
+                            }
+                        }
+                    }
+                } else {
+                    Text("No property selected")
+                        .navigationTitle("Edit Property")
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button("Close") { showingAddressEditForm = false }
+                            }
+                        }
                 }
             }
         }
