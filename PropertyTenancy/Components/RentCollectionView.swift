@@ -99,6 +99,14 @@ public struct RentCollectionView: View {
         do {
             let payment = RentPaymentModel(tenancyId: tenancyId, amount: amount, paidOn: paidOn, notes: notes)
             _ = try DatabaseManager.shared.saveRentPayment(payment)
+            
+            // Clear overdue notifications for this tenancy since payment was made
+            NotificationManager.shared.clearNotifications(for: tenancyId)
+            
+            // Schedule notification for next month's rent
+            let nextMonthDueDate = calculateNextMonthDueDate(from: paidOn)
+            NotificationManager.shared.scheduleRentPaymentReminder(for: tenancy, dueDate: nextMonthDueDate)
+            
             NotificationCenter.default.post(name: .rentPaymentSaved, object: nil, userInfo: ["tenancyId": tenancyId])
             alertMessage = "Payment saved."
             showingAlert = true
@@ -108,6 +116,20 @@ public struct RentCollectionView: View {
             alertMessage = "Error: \(error.localizedDescription)"
             showingAlert = true
         }
+    }
+    
+    private func calculateNextMonthDueDate(from paymentDate: Date) -> Date {
+        let calendar = Calendar.current
+        let monthlyDueDay = tenancy.monthlyDueDate
+        
+        // Calculate next month's due date
+        var nextDueDate = calendar.date(byAdding: .month, value: 1, to: paymentDate) ?? Date()
+        
+        // Adjust to the specific day of month
+        let components = calendar.dateComponents([.year, .month], from: nextDueDate)
+        nextDueDate = calendar.date(from: DateComponents(year: components.year, month: components.month, day: monthlyDueDay)) ?? nextDueDate
+        
+        return nextDueDate
     }
 
     private func parseAmountText(_ text: String) -> Double {

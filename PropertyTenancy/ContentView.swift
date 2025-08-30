@@ -246,6 +246,53 @@ public struct ContentView: View {
                             }
                         }
                     }
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            // Test overdue notifications
+                            for tenancy in tenancies {
+                                NotificationManager.shared.scheduleTestOverdueNotification(for: tenancy)
+                            }
+                        }) {
+                            Image(systemName: "bell.badge")
+                                .font(.title2)
+                        }
+                        .disabled(tenancies.isEmpty)
+                    }
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            // Check notification permissions and list pending notifications
+                            NotificationManager.shared.checkNotificationPermissions()
+                            NotificationManager.shared.listAllPendingNotifications()
+                        }) {
+                            Image(systemName: "info.circle")
+                                .font(.title2)
+                        }
+                    }
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            // Manually check for overdue payments
+                            print("🔍 Manually checking for overdue payments...")
+                            NotificationManager.shared.checkOverdueRentPayments()
+                        }) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.title2)
+                        }
+                        .disabled(tenancies.isEmpty)
+                    }
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            // Test immediate notification
+                            print("🧪 Testing immediate notification...")
+                            NotificationManager.shared.scheduleImmediateTestNotification()
+                        }) {
+                            Image(systemName: "bolt.circle")
+                                .font(.title2)
+                        }
+                    }
                 }
             }
             .tabItem {
@@ -262,6 +309,15 @@ public struct ContentView: View {
                   let tenancyId = userInfo["tenancyId"] as? Int64 else { return }
             if let payment = try? DatabaseManager.shared.getLatestRentPayment(forTenancyId: tenancyId) {
                 latestPaymentsByTenancyId[tenancyId] = payment
+                
+                // Clear overdue notifications for this tenancy since payment was made
+                NotificationManager.shared.clearNotifications(for: tenancyId)
+                
+                // Schedule next month's reminder
+                if let tenancy = tenancies.first(where: { $0.id == tenancyId }) {
+                    let nextMonthDueDate = calculateNextMonthDueDate(for: tenancy, from: payment.paidOn)
+                    NotificationManager.shared.scheduleRentPaymentReminder(for: tenancy, dueDate: nextMonthDueDate)
+                }
             }
         }
         .sheet(isPresented: $showingAddressForm) {
@@ -439,8 +495,11 @@ public struct ContentView: View {
             let payment = RentPaymentModel(tenancyId: tenancyId, amount: amount, paidOn: Date(), notes: "quick collected rent")
             _ = try DatabaseManager.shared.saveRentPayment(payment)
             
-            // Schedule notification for next month
-            let nextMonthDueDate = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
+            // Clear overdue notifications for this tenancy since payment was made
+            NotificationManager.shared.clearNotifications(for: tenancyId)
+            
+            // Schedule notification for next month's rent
+            let nextMonthDueDate = calculateNextMonthDueDate(for: tenancy, from: Date())
             NotificationManager.shared.scheduleRentPaymentReminder(for: tenancy, dueDate: nextMonthDueDate)
             
             if let latest = try? DatabaseManager.shared.getLatestRentPayment(forTenancyId: tenancyId) {
@@ -451,7 +510,23 @@ public struct ContentView: View {
         }
     }
     
+    private func calculateNextMonthDueDate(for tenancy: TenancyModel, from paymentDate: Date) -> Date {
+        let calendar = Calendar.current
+        let monthlyDueDay = tenancy.monthlyDueDate
+        
+        // Calculate next month's due date
+        var nextDueDate = calendar.date(byAdding: .month, value: 1, to: paymentDate) ?? Date()
+        
+        // Adjust to the specific day of month
+        let components = calendar.dateComponents([.year, .month], from: nextDueDate)
+        nextDueDate = calendar.date(from: DateComponents(year: components.year, month: components.month, day: monthlyDueDay)) ?? nextDueDate
+        
+        return nextDueDate
+    }
+    
     private func checkNotifications() {
+        print("🔔 Starting notification checks...")
+        
         // Check for overdue rent payments
         NotificationManager.shared.checkOverdueRentPayments()
         
@@ -460,6 +535,8 @@ public struct ContentView: View {
         
         // Check if there are any active notifications
         checkActiveNotifications()
+        
+        print("🔔 Notification checks completed")
     }
 
     
