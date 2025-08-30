@@ -234,8 +234,11 @@ public class NotificationManager: ObservableObject {
         content.sound = .default
         content.badge = 1
         
-        // Schedule for 5 seconds from now for testing
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+        // Add user info to help with debugging
+        content.userInfo = ["testType": "overdue", "tenancyId": tenancy.id ?? 0]
+        
+        // Schedule for immediate delivery (1 second) for testing
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         
         let request = UNNotificationRequest(
             identifier: "test_overdue_\(tenancy.id ?? 0)_\(Date().timeIntervalSince1970)",
@@ -247,7 +250,8 @@ public class NotificationManager: ObservableObject {
             if let error = error {
                 print("❌ Failed to schedule test notification: \(error.localizedDescription)")
             } else {
-                print("✅ Scheduled test overdue notification for \(tenancy.name) in 5 seconds")
+                print("✅ Scheduled test overdue notification for \(tenancy.name) in 1 second")
+                print("✅ Notification identifier: \(request.identifier)")
             }
         }
     }
@@ -274,6 +278,14 @@ public class NotificationManager: ObservableObject {
             } else {
                 print("✅ Scheduled immediate test notification")
             }
+        }
+    }
+    
+    public func testTabSwitchDirectly() {
+        print("🧪 Testing tab switch directly from NotificationManager...")
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .switchToRentTab, object: nil)
+            print("🔄 Posted switchToRentTab notification directly")
         }
     }
     

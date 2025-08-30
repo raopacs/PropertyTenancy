@@ -25,12 +25,13 @@ public struct ContentView: View {
     @State private var editingTenancy: TenancyModel?
     @State private var showingRentHistory = false
     @State private var selectedTenancyForHistory: TenancyModel?
+    @State private var selectedTab = 0 // 0: Properties, 1: Tenancies, 2: Rent
 
     public init() {}
 
     @available(iOS 17.0, *)
     public var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             // Properties Tab
             NavigationStack {
                 Group {
@@ -78,19 +79,14 @@ public struct ContentView: View {
                         }
                     }
                     
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            loadData() // Refresh data
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                    }
+                    CommonToolbarItems(tenancies: tenancies, showingSettings: $showingSettings, hasNotifications: hasNotifications, selectedTab: $selectedTab)
                 }
             }
             .tabItem {
                 Image(systemName: "house.fill")
                 Text("Properties")
             }
+            .tag(0)
             
             // Tenancies Tab
             NavigationStack {
@@ -138,20 +134,14 @@ public struct ContentView: View {
                             Label("Add Tenancy", systemImage: "plus.circle.fill")
                         }
                     }
-                    
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            loadData() // Refresh data
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                    }
+                    CommonToolbarItems(tenancies: tenancies, showingSettings: $showingSettings, hasNotifications: hasNotifications, selectedTab: $selectedTab)
                 }
             }
             .tabItem {
                 Image(systemName: "person.2.fill")
                 Text("Tenancies")
             }
+            .tag(1)
             
             // Rent Tab
             NavigationStack {
@@ -201,9 +191,15 @@ public struct ContentView: View {
                                         .cornerRadius(12)
                                         .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
                                     }
+                                } else {
+                                    if tenancies.isEmpty {
+                                        ContentUnavailableView("No Tenancies", systemImage: "person.2.fill", description: Text("Add a tenancy to track rent."))
+                                            .padding(.vertical)
+                                    } else {
+                                        ContentUnavailableView("No Payments", systemImage: "indianrupeesign.circle", description: Text("Collected rent will appear here."))
+                                            .padding(.vertical)
+                                    }
                                 }
-
-                                // No global history here; tap a tenancy to view its history
                             }
                             .padding()
                         }
@@ -229,76 +225,14 @@ public struct ContentView: View {
                         }
                     }
                     
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            showingSettings = true
-                        }) {
-                            ZStack {
-                                Image(systemName: "gearshape.fill")
-                                    .font(.title2)
-                                
-                                if hasNotifications {
-                                    Circle()
-                                        .fill(Color.red)
-                                        .frame(width: 8, height: 8)
-                                        .offset(x: 8, y: -8)
-                                }
-                            }
-                        }
-                    }
-                    
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            // Test overdue notifications
-                            for tenancy in tenancies {
-                                NotificationManager.shared.scheduleTestOverdueNotification(for: tenancy)
-                            }
-                        }) {
-                            Image(systemName: "bell.badge")
-                                .font(.title2)
-                        }
-                        .disabled(tenancies.isEmpty)
-                    }
-                    
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            // Check notification permissions and list pending notifications
-                            NotificationManager.shared.checkNotificationPermissions()
-                            NotificationManager.shared.listAllPendingNotifications()
-                        }) {
-                            Image(systemName: "info.circle")
-                                .font(.title2)
-                        }
-                    }
-                    
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            // Manually check for overdue payments
-                            print("🔍 Manually checking for overdue payments...")
-                            NotificationManager.shared.checkOverdueRentPayments()
-                        }) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.title2)
-                        }
-                        .disabled(tenancies.isEmpty)
-                    }
-                    
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            // Test immediate notification
-                            print("🧪 Testing immediate notification...")
-                            NotificationManager.shared.scheduleImmediateTestNotification()
-                        }) {
-                            Image(systemName: "bolt.circle")
-                                .font(.title2)
-                        }
-                    }
+                    CommonToolbarItems(tenancies: tenancies, showingSettings: $showingSettings, hasNotifications: hasNotifications, selectedTab: $selectedTab)
                 }
             }
             .tabItem {
                 Image(systemName: "indianrupeesign.circle.fill")
                 Text("Rent")
             }
+            .tag(2)
         }
         .onAppear {
             loadData()
@@ -319,6 +253,21 @@ public struct ContentView: View {
                     NotificationManager.shared.scheduleRentPaymentReminder(for: tenancy, dueDate: nextMonthDueDate)
                 }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .switchToRentTab)) { _ in
+            // Switch to Rent tab when rent overdue notification is tapped
+            print("🔄 ContentView received switchToRentTab notification")
+            print("🔄 Current selectedTab: \(selectedTab)")
+            selectedTab = 2
+            print("🔄 New selectedTab: \(selectedTab)")
+            print("🔄 Switched to Rent tab due to notification tap")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            print("📱 App became active")
+            // Check if we should switch to rent tab based on notification interaction
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            print("📱 App will enter foreground")
         }
         .sheet(isPresented: $showingAddressForm) {
             NavigationView {
@@ -571,6 +520,48 @@ public struct ContentView: View {
         }
         
         hasNotifications = hasActiveNotifications
+    }
+}
+
+// MARK: - Common Toolbar Items
+@available(iOS 17.0, *)
+struct CommonToolbarItems: ToolbarContent {
+    let tenancies: [TenancyModel]
+    @Binding var showingSettings: Bool
+    let hasNotifications: Bool
+    @Binding var selectedTab: Int
+    
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(action: {
+                showingSettings = true
+            }) {
+                ZStack {
+                    Image(systemName: "gearshape.fill")
+                        .font(.title2)
+                    
+                    if hasNotifications {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 8, height: 8)
+                            .offset(x: 8, y: -8)
+                    }
+                }
+            }
+        }
+        
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(action: {
+                // Test overdue notifications
+                for tenancy in tenancies {
+                    NotificationManager.shared.scheduleTestOverdueNotification(for: tenancy)
+                }
+            }) {
+                Image(systemName: "bell.badge")
+                    .font(.title2)
+            }
+            .disabled(tenancies.isEmpty)
+        }
     }
 }
 @available(iOS 17.0, *)
