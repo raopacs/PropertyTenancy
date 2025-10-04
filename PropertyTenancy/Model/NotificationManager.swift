@@ -63,26 +63,69 @@ public class NotificationManager: ObservableObject {
     }
     
     public func scheduleTenancyRenewalReminder(for tenancy: TenancyModel) {
-        let content = UNMutableNotificationContent()
-        content.title = "Tenancy Renewal Due"
-        content.body = "Tenancy agreement for \(tenancy.name) expires in 1 month. Consider renewal."
-        content.sound = .default
+        // First, clear any existing renewal notifications for this tenancy to avoid duplicates.
+        clearRenewalNotifications(for: tenancy.id ?? 0)
+
+        // Renewal is due at the 11-month mark, which is when the 1-month notice period starts.
+        var renewalDueDate = Calendar.current.date(byAdding: .month, value: 11, to: tenancy.agreementSignedDate) ?? Date()
+        renewalDueDate = Calendar.current.date(byAdding: .day, value: -7, to: renewalDueDate) ?? renewalDueDate
+
+        // --- Schedule a reminder one week before the renewal due date ---
+        if let reminderDate = Calendar.current.date(byAdding: .day, value: -7, to: renewalDueDate) {
+            let reminderContent = UNMutableNotificationContent()
+            reminderContent.title = "📋 Tenancy Renewal Approaching"
+            reminderContent.body = "Tenancy agreement for \(tenancy.name) is due for renewal in 1 week."
+            reminderContent.sound = .default
+            reminderContent.userInfo = [
+                "type": "tenancy_renewal_reminder",
+                "tenancyId": tenancy.id ?? 0,
+                "tenancyName": tenancy.name,
+                "renewalDueDate": renewalDueDate.timeIntervalSince1970
+            ]
+
+            let reminderTrigger = UNCalendarNotificationTrigger(dateMatching: Calendar.current.dateComponents([.year, .month, .day], from: reminderDate), repeats: false)
+            
+            let reminderRequest = UNNotificationRequest(
+                identifier: "tenancy_renewal_reminder_\(tenancy.id ?? 0)",
+                content: reminderContent,
+                trigger: reminderTrigger
+            )
+
+            UNUserNotificationCenter.current().add(reminderRequest) { error in
+                if let error = error {
+                    print("❌ Failed to schedule 1-week renewal reminder: \(error.localizedDescription)")
+                } else {
+                    print("✅ Scheduled 1-week renewal reminder for \(tenancy.name) on \(self.formatDate(reminderDate))")
+                }
+            }
+        }
+
+        // --- Schedule a notification on the renewal due date (11 months) ---
+        let dueContent = UNMutableNotificationContent()
+        dueContent.title = "⚠️ Tenancy Renewal Due"
+        dueContent.body = "Tenancy agreement for \(tenancy.name) expires in 1 month. Consider renewal urgently!"
+        dueContent.sound = .default
+        dueContent.badge = 1
+        dueContent.userInfo = [
+            "type": "tenancy_renewal_due",
+            "tenancyId": tenancy.id ?? 0,
+            "tenancyName": tenancy.name,
+            "renewalDueDate": renewalDueDate.timeIntervalSince1970
+        ]
         
-        // Schedule reminder 11 months after agreement date
-        let renewalDate = Calendar.current.date(byAdding: .month, value: 11, to: tenancy.agreementSignedDate) ?? Date()
-        let trigger = UNCalendarNotificationTrigger(dateMatching: Calendar.current.dateComponents([.year, .month, .day], from: renewalDate), repeats: false)
+        let dueTrigger = UNCalendarNotificationTrigger(dateMatching: Calendar.current.dateComponents([.year, .month, .day], from: renewalDueDate), repeats: false)
         
-        let request = UNNotificationRequest(
-            identifier: "tenancy_renewal_\(tenancy.id ?? 0)",
-            content: content,
-            trigger: trigger
+        let dueRequest = UNNotificationRequest(
+            identifier: "tenancy_renewal_due_\(tenancy.id ?? 0)",
+            content: dueContent,
+            trigger: dueTrigger
         )
         
-        UNUserNotificationCenter.current().add(request) { error in
+        UNUserNotificationCenter.current().add(dueRequest) { error in
             if let error = error {
-                print("❌ Failed to schedule renewal reminder: \(error.localizedDescription)")
+                print("❌ Failed to schedule renewal due notification: \(error.localizedDescription)")
             } else {
-                print("✅ Scheduled renewal reminder for \(tenancy.name)")
+                print("✅ Scheduled renewal due notification for \(tenancy.name) on \(self.formatDate(renewalDueDate))")
             }
         }
     }
@@ -182,17 +225,35 @@ public class NotificationManager: ObservableObject {
     // MARK: - Check Tenancy Renewals
     
     public func checkTenancyRenewals() {
+        print("🔍 Checking for tenancy renewals...")
         do {
             let tenancies = try DatabaseManager.shared.getAllTenancies()
             let currentDate = Date()
             
             for tenancy in tenancies {
-                // Check if 11 months have passed since agreement
-                let renewalDate = Calendar.current.date(byAdding: .month, value: 11, to: tenancy.agreementSignedDate) ?? currentDate
+                // Calculate renewal due date (11 months from agreement signed date)
+                let renewalDueDate = Calendar.current.date(byAdding: .month, value: 11, to: tenancy.agreementSignedDate) ?? currentDate
                 
-                if renewalDate <= currentDate {
-                    scheduleTenancyRenewalReminder(for: tenancy)
+                // Calculate when to schedule the reminder (1 week before renewal due date)
+                let reminderDate = Calendar.current.date(byAdding: .day, value: -7, to: renewalDueDate) ?? renewalDueDate
+                
+                // Schedule renewal notifications for all tenancies (they'll only fire when due)
+                scheduleTenancyRenewalReminder(for: tenancy)
+                
+                // Log the dates for debugging
+                print("📅 Tenancy: \(tenancy.name)")
+                print("   Agreement signed: \(formatDate(tenancy.agreementSignedDate))")
+                print("   Renewal due (11 months): \(formatDate(renewalDueDate))")
+                print("   Reminder scheduled for: \(formatDate(reminderDate))")
+                
+                if renewalDueDate <= currentDate {
+                    print("   ⚠️ Renewal is DUE or OVERDUE")
+                } else if reminderDate <= currentDate && renewalDueDate > currentDate {
+                    print("   🔔 Renewal reminder should have been shown")
+                } else {
+                    print("   ✅ Renewal reminder scheduled for future")
                 }
+                print("---")
             }
         } catch {
             print("❌ Error checking tenancy renewals: \(error)")
@@ -210,9 +271,8 @@ public class NotificationManager: ObservableObject {
         // Get all pending notifications and filter by tenancy ID
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
             let identifiersToRemove = requests.compactMap { request -> String? in
-                if request.identifier.contains("rent_reminder_\(tenancyId)_") ||
-                   request.identifier.contains("rent_overdue_\(tenancyId)_") ||
-                   request.identifier.contains("tenancy_renewal_\(tenancyId)") {
+                if request.identifier.hasPrefix("rent_reminder_\(tenancyId)_") ||
+                   request.identifier.hasPrefix("rent_overdue_\(tenancyId)_") {
                     return request.identifier
                 }
                 return nil
@@ -220,7 +280,25 @@ public class NotificationManager: ObservableObject {
             
             if !identifiersToRemove.isEmpty {
                 UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
-                print("🗑️ Cleared \(identifiersToRemove.count) notifications for tenancy \(tenancyId)")
+                print("🗑️ Cleared \(identifiersToRemove.count) rent notifications for tenancy \(tenancyId)")
+            }
+        }
+    }
+    
+    public func clearRenewalNotifications(for tenancyId: Int64) {
+        // Get all pending notifications and filter by tenancy ID
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let identifiersToRemove = requests.compactMap { request -> String? in
+                if request.identifier.hasPrefix("tenancy_renewal_reminder_\(tenancyId)") ||
+                   request.identifier.hasPrefix("tenancy_renewal_due_\(tenancyId)") {
+                    return request.identifier
+                }
+                return nil
+            }
+            
+            if !identifiersToRemove.isEmpty {
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
+                print("🗑️ Cleared \(identifiersToRemove.count) renewal notifications for tenancy \(tenancyId)")
             }
         }
     }
@@ -251,6 +329,40 @@ public class NotificationManager: ObservableObject {
                 print("❌ Failed to schedule test notification: \(error.localizedDescription)")
             } else {
                 print("✅ Scheduled test overdue notification for \(tenancy.name) in 1 second")
+                print("✅ Notification identifier: \(request.identifier)")
+            }
+        }
+    }
+    
+    public func scheduleTestRenewalNotification(for tenancy: TenancyModel) {
+        let content = UNMutableNotificationContent()
+        content.title = "🧪 Test: Tenancy Renewal Due"
+        content.body = "This is a test renewal notification for \(tenancy.name) - agreement expires soon!"
+        content.sound = .default
+        content.badge = 1
+        
+        // Add user info to help with debugging
+        content.userInfo = [
+            "testType": "renewal",
+            "tenancyId": tenancy.id ?? 0,
+            "tenancyName": tenancy.name,
+            "type": "tenancy_renewal_due"
+        ]
+        
+        // Schedule for immediate delivery (2 seconds) for testing
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false)
+        
+        let request = UNNotificationRequest(
+            identifier: "test_renewal_\(tenancy.id ?? 0)_\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: trigger
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Failed to schedule test renewal notification: \(error.localizedDescription)")
+            } else {
+                print("✅ Scheduled test renewal notification for \(tenancy.name) in 2 seconds")
                 print("✅ Notification identifier: \(request.identifier)")
             }
         }

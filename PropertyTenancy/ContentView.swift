@@ -262,6 +262,14 @@ public struct ContentView: View {
             print("🔄 New selectedTab: \(selectedTab)")
             print("🔄 Switched to Rent tab due to notification tap")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .tenancyRenewalDue)) { _ in
+            // Switch to Tenancies tab when renewal notification is tapped
+            print("🔄 ContentView received tenancyRenewalDue notification")
+            print("🔄 Current selectedTab: \(selectedTab)")
+            selectedTab = 1
+            print("🔄 New selectedTab: \(selectedTab)")
+            print("🔄 Switched to Tenancies tab due to renewal notification")
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             print("📱 App became active")
             // Check if we should switch to rent tab based on notification interaction
@@ -558,6 +566,19 @@ struct CommonToolbarItems: ToolbarContent {
                 }
             }) {
                 Image(systemName: "bell.badge")
+                    .font(.title2)
+            }
+            .disabled(tenancies.isEmpty)
+        }
+        
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(action: {
+                // Test renewal notifications
+                for tenancy in tenancies {
+                    NotificationManager.shared.scheduleTestRenewalNotification(for: tenancy)
+                }
+            }) {
+                Image(systemName: "doc.text")
                     .font(.title2)
             }
             .disabled(tenancies.isEmpty)
